@@ -1,0 +1,43 @@
+<div class="pet-summoner-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>🐾 펫 소환기 (Pet Summoner)</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <p class="pet-summoner-desc">
+                반려동물 프로필을 입력해두면, 입력창 옆의 🐶 / 🐱 버튼을 눌러 다음 AI 응답에
+                해당 반려동물의 행동을 자연스럽게 등장시킬 수 있습니다.
+            </p>
+
+            <h4>🐶 강아지</h4>
+            <label for="petsum_dog_name">이름</label>
+            <input id="petsum_dog_name" type="text" class="text_pole" placeholder="예: 뽀삐" />
+            <label for="petsum_dog_traits">성격 / 특징</label>
+            <textarea id="petsum_dog_traits" class="text_pole" rows="2"
+                placeholder="예: 활발하고 사람을 잘 따름. 낯선 사람에게는 짖는다. 산책을 좋아함."></textarea>
+            <label for="petsum_dog_appearance">외형</label>
+            <textarea id="petsum_dog_appearance" class="text_pole" rows="2"
+                placeholder="예: 갈색 털의 소형견, 귀가 축 처짐, 꼬리가 짧음"></textarea>
+
+            <hr>
+
+            <h4>🐱 고양이</h4>
+            <label for="petsum_cat_name">이름</label>
+            <input id="petsum_cat_name" type="text" class="text_pole" placeholder="예: 나비" />
+            <label for="petsum_cat_traits">성격 / 특징</label>
+            <textarea id="petsum_cat_traits" class="text_pole" rows="2"
+                placeholder="예: 새침하지만 애정표현을 함. 낮잠과 높은 곳을 좋아함. 낯선 사람은 경계함."></textarea>
+            <label for="petsum_cat_appearance">외형</label>
+            <textarea id="petsum_cat_appearance" class="text_pole" rows="2"
+                placeholder="예: 흰색과 검은색이 섞인 털, 초록 눈, 통통한 편"></textarea>
+
+            <hr>
+
+            <label class="checkbox_label" for="petsum_oneshot">
+                <input id="petsum_oneshot" type="checkbox" />
+                <span>버튼을 누르면 '다음 응답 1회만' 적용 (응답이 끝나면 자동으로 꺼짐)</span>
+            </label>
+        </div>
+    </div>
+</div>

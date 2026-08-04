@@ -1,0 +1,60 @@
+.pet-summoner-buttons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin: 0 4px;
+}
+
+.pet-summon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0.6;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    font-size: 1.1em;
+}
+
+.pet-summon-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pet-summon-btn.active {
+    opacity: 1;
+    background: rgba(100, 180, 255, 0.25);
+    border-color: rgba(100, 180, 255, 0.7);
+    box-shadow: 0 0 6px rgba(100, 180, 255, 0.5);
+}
+
+.pet-summoner-desc {
+    opacity: 0.8;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+.pet-summoner-settings h4 {
+    margin: 10px 0 4px;
+}
+
+.pet-summoner-settings label {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.9em;
+}
+
+.pet-summoner-settings .checkbox_label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+.pet-summoner-settings .checkbox_label input {
+    width: auto;
+}
