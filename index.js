@@ -1,4 +1,4 @@
-// 펫 소환기 (Pet Summoner) v2 - SillyTavern extension
+// 펫 소환기 (Pet Summoner) v3 - SillyTavern extension
 //
 // extension_prompt_types / extension_prompt_roles 는 getContext()에 항상 노출되지 않을 수 있어
 // script.js에서 직접 가져옵니다 (공식 문서에서도 허용하는 패턴입니다).
@@ -13,7 +13,7 @@ const EXTENSION_FOLDER = 'third-party/pet-summoner';
 
 const EMPTY_PET = Object.freeze({
     name: '', age: '', breed: '', size: '',
-    likes: '', habits: '', sound: '', energy: '',
+    likes: '', dislikes: '', habits: '', sound: '', energy: '',
     health: '', routine: '', episodes: [],
 });
 
@@ -68,30 +68,29 @@ function getSettings() {
 }
 
 // ---------- 프롬프트 빌드 ----------
+//
+// 설계 원칙:
+// - 프로필 정보를 "라벨: 값" 목록으로 나열하지 않는다 (그대로 베끼기 쉬워짐).
+// - 매번 배경 사실 + 에피소드를 합친 풀에서 1~2개만 무작위로 골라 라벨 없이 흘려준다.
+// - "하지 말 것"을 구체적으로 명시하고, 나쁜 예/좋은 예를 직접 보여준다.
 
-function fieldLine(label, value) {
-    const v = (value || '').trim();
-    return v ? `${label}: ${v}` : null;
+function collectBackgroundFacts(pet) {
+    const facts = [];
+    if (pet.age?.trim()) facts.push(`나이는 ${pet.age.trim()} 정도`);
+    if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
+    if (pet.size?.trim()) facts.push(`${pet.size.trim()} 체구`);
+    if (pet.likes?.trim()) facts.push(`${pet.likes.trim()}을(를) 좋아함`);
+    if (pet.dislikes?.trim()) facts.push(`${pet.dislikes.trim()}을(를) 싫어함`);
+    if (pet.habits?.trim()) facts.push(pet.habits.trim());
+    if (pet.sound?.trim()) facts.push(`소리를 낼 때는 ${pet.sound.trim()}`);
+    if (pet.energy?.trim()) facts.push(`평소 에너지는 ${pet.energy.trim()} 편`);
+    if (pet.health?.trim()) facts.push(pet.health.trim());
+    if (pet.routine?.trim()) facts.push(pet.routine.trim());
+    return facts;
 }
 
-function buildBackgroundText(pet) {
-    const parts = [
-        fieldLine('나이', pet.age),
-        fieldLine('품종', pet.breed),
-        fieldLine('크기', pet.size),
-        fieldLine('좋아하는것/싫어하는것', pet.likes),
-        fieldLine('버릇', pet.habits),
-        fieldLine('소리', pet.sound),
-        fieldLine('에너지', pet.energy),
-        fieldLine('건강', pet.health),
-        fieldLine('평소루틴', pet.routine),
-    ].filter(Boolean);
-    return parts.join(' / ');
-}
-
-function pickRandomEpisodes(list, n) {
-    if (!Array.isArray(list)) return [];
-    const pool = list.map((e) => (e || '').trim()).filter(Boolean);
+function pickRandom(list, n) {
+    const pool = (list || []).map((x) => (x || '').trim()).filter(Boolean);
     if (pool.length === 0) return [];
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(n, shuffled.length));
@@ -104,18 +103,30 @@ function buildInstructionText() {
 
     const pet = settings.pets[settings.activePet];
     const name = (pet.name || '').trim() || speciesLabel(settings.activePet);
-    const background = buildBackgroundText(pet);
-    const episodes = pickRandomEpisodes(pet.episodes, 2);
+    const facts = collectBackgroundFacts(pet);
+    const episodes = pet.episodes || [];
+    const pool = [...facts, ...episodes];
+    const picked = pickRandom(pool, 2);
 
     const lines = [
         '[반려동물 등장 지시 — 시스템]',
         `다음 응답에 "${name}"(${speciesLabel(settings.activePet)})이 자연스럽게 함께 있는 것으로 서술하라.`,
-        '아래 정보는 그대로 인용하거나 요약해서 말하지 말 것. 참고 배경으로만 삼아, 지금 상황에 맞는 짧고 구체적인 행동 하나로 자연스럽게 녹여내라.',
-        `지금 반응 방식(태그): ${settings.selectedTags.join(', ')}`,
+        `지금 반응 톤(참고용 키워드, 그대로 쓰지 말 것): ${settings.selectedTags.join(', ')}`,
     ];
-    if (background) lines.push(`배경 정보(참고용, 인용 금지): ${background}`);
-    if (episodes.length) lines.push(`지난 기억(참고용, 그대로 재현 금지): ${episodes.join(' / ')}`);
-    lines.push('위 정보를 문장 그대로 옮기지 말고, 이 순간에 맞는 하나의 자연스러운 행동·반응으로만 표현하라.');
+
+    if (picked.length) {
+        lines.push(`참고 배경(이 중 떠오르는 인상만 은근히 반영, 절대 그대로 옮기지 말 것): ${picked.join(' / ')}`);
+    }
+
+    lines.push(
+        '금지 사항:',
+        '- 나이·품종·병명 등 사실 단어를 문장에 직접 쓰지 말 것.',
+        '- "질투하며", "애교부리듯"처럼 위 반응 톤 단어를 그대로 감정 서술어로 쓰지 말 것.',
+        '- 배경 정보를 나열하거나 요약해서 설명하지 말 것.',
+        '나쁜 예 (금지): "신부전을 앓는 15살 슈나우저 믹스가 질투하며 다가왔다"',
+        '좋은 예 (허용): "작은 발소리가 들리더니, 말없이 다가와 발치에 몸을 기댔다"',
+        '위 좋은 예처럼, 정보에서 우러나온 짧고 구체적인 행동 하나만 자연스럽게 녹여내라.',
+    );
 
     return lines.join('\n');
 }
@@ -184,6 +195,10 @@ async function openTagPopup() {
         return;
     }
 
+    const pet = settings.pets[settings.activePet];
+    const name = (pet.name || '').trim() || speciesLabel(settings.activePet);
+    const icon = settings.activePet === 'dog' ? 'fa-dog' : 'fa-cat';
+
     const selected = new Set(settings.selectedTags || []);
 
     function renderGroup(list) {
@@ -195,11 +210,12 @@ async function openTagPopup() {
 
     const html = `
         <div class="pet-summoner-tagpopup">
-            <p class="ps-refine-label">상호작용 방식</p>
+            <div class="ps-tagpopup-header"><i class="fa-solid ${icon}"></i>${escapeHtml(name)}이(가) 지금 어떻게 반응할까요</div>
+            <p class="ps-tagpopup-label">상호작용 방식</p>
             <div class="ps-pill-row">${renderGroup(settings.tags.interaction)}</div>
-            <p class="ps-refine-label">함께하는 루틴</p>
+            <p class="ps-tagpopup-label">함께하는 루틴</p>
             <div class="ps-pill-row">${renderGroup(settings.tags.routine)}</div>
-            <p class="ps-tagpopup-hint">태그를 선택하면 다음 응답에 자연스럽게 반영됩니다. 여러 개 선택할 수 있어요.</p>
+            <p class="ps-tagpopup-hint">여러 개 선택할 수 있어요. 다음 응답 1회에 반영됩니다.</p>
         </div>
     `;
 
@@ -271,6 +287,7 @@ function loadStaticFieldValues() {
         $(`#ps_${key}_breed`).val(pet.breed);
         $(`#ps_${key}_size`).val(pet.size);
         $(`#ps_${key}_likes`).val(pet.likes);
+        $(`#ps_${key}_dislikes`).val(pet.dislikes);
         $(`#ps_${key}_habits`).val(pet.habits);
         $(`#ps_${key}_sound`).val(pet.sound);
         $(`#ps_${key}_energy`).val(pet.energy || '');
@@ -293,7 +310,6 @@ function renderEpisodes(key) {
             `<div class="ps-episode-row" data-index="${idx}" data-pet="${key}">
                 <i class="fa-solid fa-paw ps-episode-icon"></i>
                 <textarea class="ps-episode-text" rows="1"></textarea>
-                <i class="fa-solid fa-wand-magic-sparkles ps-episode-refine" title="AI로 다듬기"></i>
                 <i class="fa-solid fa-xmark ps-episode-remove" title="삭제"></i>
             </div>`,
         );
@@ -325,59 +341,13 @@ function renderAllDynamicLists() {
     renderTagManager('routine');
 }
 
-async function aiRefine(currentText) {
-    const context = SillyTavern.getContext();
-    if (!currentText || !currentText.trim()) {
-        toastr.warning('먼저 내용을 입력해주세요.', '펫 소환기');
-        return null;
-    }
-
-    const quietPrompt = `다음은 반려동물 프로필에 들어갈 문장이다. 의미와 사실관계는 그대로 유지하면서 자연스러운 한국어 문장으로 다듬어줘. 과장하거나 새로운 내용을 지어내지 마. 결과 문장만 출력해.\n\n---\n${currentText}\n---`;
-
-    const loaderHandle = context.loader ? context.loader.show({ message: '문장을 다듬는 중...' }) : null;
-    try {
-        const result = await context.generateQuietPrompt({ quietPrompt });
-        return (result || '').trim();
-    } catch (error) {
-        console.error('[PetSummoner] AI 다듬기 실패:', error);
-        toastr.error('AI로 다듬는 데 실패했습니다.', '펫 소환기');
-        return null;
-    } finally {
-        if (loaderHandle) await loaderHandle.hide();
-    }
-}
-
-async function refineFieldFlow(getCurrent, setValue) {
-    const current = getCurrent();
-    const refined = await aiRefine(current);
-    if (refined === null) return;
-
-    const context = SillyTavern.getContext();
-    const { Popup, POPUP_TYPE, POPUP_RESULT } = context;
-
-    const html = `
-        <div class="pet-summoner-refine">
-            <p class="ps-refine-label">원본</p>
-            <p class="ps-refine-original">${escapeHtml(current)}</p>
-            <p class="ps-refine-label">AI 제안</p>
-            <p class="ps-refine-suggestion">${escapeHtml(refined)}</p>
-        </div>
-    `;
-    const popup = new Popup(html, POPUP_TYPE.TEXT, '', { okButton: '적용', cancelButton: '취소' });
-    const result = await popup.show();
-
-    if (result === POPUP_RESULT.AFFIRMATIVE) {
-        setValue(refined);
-    }
-}
-
 function bindPanelEvents() {
     const context = SillyTavern.getContext();
     const settings = getSettings();
     const ns = '.petsumPanel';
 
     for (const key of ['dog', 'cat']) {
-        for (const field of ['name', 'age', 'breed', 'size', 'likes', 'habits', 'sound', 'health', 'routine']) {
+        for (const field of ['name', 'age', 'breed', 'size', 'likes', 'dislikes', 'habits', 'sound', 'health', 'routine']) {
             $(document).on(`input${ns}`, `#ps_${key}_${field}`, function () {
                 settings.pets[key][field] = $(this).val();
                 context.saveSettingsDebounced();
@@ -430,35 +400,6 @@ function bindPanelEvents() {
         settings.pets[key].episodes.splice(idx, 1);
         renderEpisodes(key);
         context.saveSettingsDebounced();
-    });
-
-    $(document).on(`click${ns}`, '.ps-episode-refine', async function () {
-        const $row = $(this).closest('.ps-episode-row');
-        const key = $row.data('pet');
-        const idx = $row.data('index');
-        const $textarea = $row.find('.ps-episode-text');
-        await refineFieldFlow(
-            () => $textarea.val(),
-            (newVal) => {
-                $textarea.val(newVal);
-                settings.pets[key].episodes[idx] = newVal;
-                context.saveSettingsDebounced();
-            },
-        );
-    });
-
-    $(document).on(`click${ns}`, '.ps-field-refine', async function () {
-        const field = $(this).data('field');
-        const key = $(this).data('pet');
-        const $target = $(`#ps_${key}_${field}`);
-        await refineFieldFlow(
-            () => $target.val(),
-            (newVal) => {
-                $target.val(newVal);
-                settings.pets[key][field] = newVal;
-                context.saveSettingsDebounced();
-            },
-        );
     });
 
     for (const group of ['interaction', 'routine']) {

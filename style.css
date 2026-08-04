@@ -25,13 +25,12 @@
     box-shadow: 0 0 6px rgba(216, 90, 48, 0.4);
 }
 
-/* 마법봉 메뉴 항목 */
 #pet_summoner_menu_item i {
     width: 20px;
     text-align: center;
 }
 
-/* ===== 메인 관리 패널 (팝업 안) ===== */
+/* ===== 메인 관리 패널 ===== */
 .pet-summoner-panel {
     color: #2c2c2a;
     font-size: 14px;
@@ -40,8 +39,8 @@
 
 .pet-summoner-panel .ps-card {
     background: #ffffff;
-    border: 1px solid #eee;
-    border-radius: 14px;
+    border: 1px solid #ececea;
+    border-radius: 18px;
     margin-bottom: 14px;
     overflow: hidden;
 }
@@ -78,16 +77,19 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 3px 9px;
+    border-radius: 999px;
     cursor: pointer;
 }
 
 .pet-summoner-panel .ps-fields {
-    padding: 14px 16px;
-    background: #fff;
+    padding: 14px;
+    background: #ffffff;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .pet-summoner-panel .ps-grid2 {
@@ -96,51 +98,41 @@
     gap: 10px;
 }
 
+/* 필드를 박스 카드로 명확히 구분 */
+.pet-summoner-panel .ps-field {
+    background: #fafaf8;
+    border: 1px solid #efefeb;
+    border-radius: 12px;
+    padding: 8px 10px;
+}
+
 .pet-summoner-panel .ps-field label {
     display: block;
-    font-size: 12px;
-    color: #8a8a86;
+    font-size: 11px;
+    color: #9a9a94;
     margin-bottom: 4px;
-}
-
-.pet-summoner-panel .ps-field-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-}
-
-.pet-summoner-panel .ps-field-head label {
-    margin-bottom: 0;
-}
-
-.pet-summoner-panel .ps-field-refine {
-    cursor: pointer;
-    color: #d85a30;
-    font-size: 13px;
-    opacity: 0.8;
-}
-
-.pet-summoner-panel .ps-field-refine:hover {
-    opacity: 1;
 }
 
 .pet-summoner-panel textarea,
 .pet-summoner-panel input[type="text"],
 .pet-summoner-panel select {
-    background: #fafafa;
-    border: 1px solid #e5e5e2;
-    border-radius: 8px;
+    background: transparent;
+    border: none;
     color: #2c2c2a;
     width: 100%;
     box-sizing: border-box;
+    padding: 0;
+    font-size: 13px;
 }
 
 .pet-summoner-panel textarea:focus,
 .pet-summoner-panel input[type="text"]:focus,
 .pet-summoner-panel select:focus {
-    border-color: #d85a30;
     outline: none;
+}
+
+.pet-summoner-panel .ps-field:focus-within {
+    border-color: #d85a30;
 }
 
 .pet-summoner-panel .ps-episode-list {
@@ -154,8 +146,9 @@
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    background: #faf9f6;
-    border-radius: 8px;
+    background: #fafaf8;
+    border: 1px solid #efefeb;
+    border-radius: 10px;
     padding: 8px 10px;
 }
 
@@ -167,24 +160,22 @@
 
 .pet-summoner-panel .ps-episode-text {
     flex: 1;
-    background: #fff;
-    border: 1px solid #e5e5e2;
-    border-radius: 6px;
+    background: transparent;
+    border: none;
     font-size: 13px;
-    padding: 6px 8px;
+    padding: 6px 0;
     resize: vertical;
 }
 
-.pet-summoner-panel .ps-episode-refine,
+.pet-summoner-panel .ps-episode-text:focus {
+    outline: none;
+}
+
 .pet-summoner-panel .ps-episode-remove {
     cursor: pointer;
     margin-top: 8px;
-    color: #999;
+    color: #b3b3ad;
     font-size: 13px;
-}
-
-.pet-summoner-panel .ps-episode-refine:hover {
-    color: #d85a30;
 }
 
 .pet-summoner-panel .ps-episode-remove:hover {
@@ -194,10 +185,10 @@
 .pet-summoner-panel .ps-add-btn {
     background: #fff;
     border: 1px dashed #cfcfca;
-    border-radius: 8px;
+    border-radius: 999px;
     color: #8a8a86;
     font-size: 12px;
-    padding: 5px 10px;
+    padding: 5px 12px;
     cursor: pointer;
 }
 
@@ -208,8 +199,8 @@
 
 .pet-summoner-panel .ps-tagmanager {
     background: #ffffff;
-    border: 1px solid #eee;
-    border-radius: 14px;
+    border: 1px solid #ececea;
+    border-radius: 18px;
     padding: 14px 16px;
     margin-bottom: 14px;
 }
@@ -221,8 +212,8 @@
 }
 
 .pet-summoner-panel .ps-subtitle {
-    font-size: 12px;
-    color: #8a8a86;
+    font-size: 11px;
+    color: #9a9a94;
     margin: 10px 0 6px;
 }
 
@@ -232,7 +223,11 @@
     margin-top: 8px;
 }
 
-.pet-summoner-panel .ps-tag-add-row input {
+.pet-summoner-panel .ps-tag-add-row .text_pole {
+    background: #fafaf8;
+    border: 1px solid #efefeb;
+    border-radius: 999px;
+    padding: 6px 12px;
     flex: 1;
 }
 
@@ -245,7 +240,7 @@
     cursor: pointer;
 }
 
-/* 알약형 태그 (관리 패널 + 팝업 공용) */
+/* 알약형 태그 - 공용 */
 .ps-pill-row {
     display: flex;
     flex-wrap: wrap;
@@ -256,13 +251,13 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #f1f0ec;
-    color: #5a5a56;
+    background: #ffffff;
+    color: #712b13;
     font-size: 12px;
     padding: 6px 12px;
     border-radius: 999px;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 1px solid rgba(216, 90, 48, 0.3);
     user-select: none;
 }
 
@@ -271,59 +266,56 @@
 }
 
 .petsum-pill.active {
-    background: #f5c4b3;
-    color: #4a1b0c;
+    background: #d85a30;
+    color: #ffffff;
+    border-color: #d85a30;
 }
 
 .petsum-pill-mgr {
     cursor: default;
-    background: #cecbf6;
-    color: #26215c;
+    background: #fafaf8;
+    color: #5a5a56;
+    border-color: #efefeb;
 }
 
 .petsum-pill-mgr .ps-tag-remove {
     cursor: pointer;
-    opacity: 0.7;
+    opacity: 0.6;
 }
 
 .petsum-pill-mgr .ps-tag-remove:hover {
     opacity: 1;
+    color: #e24b4a;
 }
 
 /* 태그 선택 팝업 (입력창 버튼 클릭 시) */
-.pet-summoner-tagpopup .ps-refine-label {
-    font-size: 12px;
-    color: #8a8a86;
+.pet-summoner-tagpopup {
+    padding: 4px 2px;
+}
+
+.pet-summoner-tagpopup .ps-tagpopup-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c2c2a;
+}
+
+.pet-summoner-tagpopup .ps-tagpopup-header i {
+    color: #d85a30;
+    font-size: 16px;
+}
+
+.pet-summoner-tagpopup .ps-tagpopup-label {
+    font-size: 11px;
+    color: #9a9a94;
     margin: 10px 0 6px;
 }
 
 .pet-summoner-tagpopup .ps-tagpopup-hint {
-    font-size: 12px;
-    color: #999;
+    font-size: 11px;
+    color: #b3b3ad;
     margin-top: 12px;
-}
-
-/* AI 다듬기 결과 비교 팝업 */
-.pet-summoner-refine .ps-refine-label {
-    font-size: 12px;
-    color: #8a8a86;
-    margin: 10px 0 4px;
-}
-
-.pet-summoner-refine .ps-refine-original {
-    font-size: 13px;
-    color: #999;
-    background: #f6f6f4;
-    border-radius: 8px;
-    padding: 8px 10px;
-    white-space: pre-wrap;
-}
-
-.pet-summoner-refine .ps-refine-suggestion {
-    font-size: 13px;
-    color: #2c2c2a;
-    background: #faece7;
-    border-radius: 8px;
-    padding: 8px 10px;
-    white-space: pre-wrap;
 }
