@@ -444,21 +444,51 @@ function injectMenuItem() {
 
 // ---------- 메인 패널 내비게이션 ----------
 
-let screenStack = ['home'];
-let rainbowSelectedPetId = null;
+// 화면 내비게이션 상태는 JS 변수 대신 모달 DOM 요소(dataset)에 저장한다.
+// 확장 스크립트가 어떤 이유로든 다시 로드되어 모듈이 두 번 평가되는 경우에도
+// (예: 페이지를 완전히 새로고침하지 않고 반복 테스트한 경우) 상태가 서로 어긋나지 않도록 하기 위함이다.
+function getScreenStack() {
+    const box = document.getElementById('ps_main_box');
+    if (!box) return ['home'];
+    try {
+        const stack = JSON.parse(box.dataset.screenStack || '["home"]');
+        return Array.isArray(stack) && stack.length ? stack : ['home'];
+    } catch {
+        return ['home'];
+    }
+}
+
+function setScreenStack(stack) {
+    const box = document.getElementById('ps_main_box');
+    if (box) box.dataset.screenStack = JSON.stringify(stack);
+}
+
+function getRainbowSelectedPetId() {
+    return document.getElementById('ps_main_box')?.dataset.rainbowPetId || null;
+}
+
+function setRainbowSelectedPetId(id) {
+    const box = document.getElementById('ps_main_box');
+    if (box) box.dataset.rainbowPetId = id || '';
+}
 
 function currentTopScreen() {
-    return screenStack[screenStack.length - 1] || 'home';
+    const stack = getScreenStack();
+    return stack[stack.length - 1] || 'home';
 }
 
 function pushScreen(screen) {
-    screenStack.push(screen);
+    const stack = getScreenStack();
+    stack.push(screen);
+    setScreenStack(stack);
     renderScreen(screen);
 }
 
 function popScreen() {
-    if (screenStack.length > 1) {
-        screenStack.pop();
+    const stack = getScreenStack();
+    if (stack.length > 1) {
+        stack.pop();
+        setScreenStack(stack);
         renderScreen(currentTopScreen());
     }
 }
@@ -513,8 +543,8 @@ async function openMainPanel() {
     box.querySelector('#ps_main_close').addEventListener('click', closeMainPanel);
 
     bindPanelEvents();
-    screenStack = ['home'];
-    rainbowSelectedPetId = null;
+    box.dataset.screenStack = JSON.stringify(['home']);
+    box.dataset.rainbowPetId = '';
     renderScreen('home');
 }
 
@@ -554,7 +584,7 @@ function renderScreen(screen) {
 
     if (screen === 'rainbow-diary') {
         const settings = getSettings();
-        const pet = settings.pets[rainbowSelectedPetId];
+        const pet = settings.pets[getRainbowSelectedPetId()];
         if (!pet) {
             popScreen();
             return;
@@ -802,6 +832,16 @@ function addTagFromInput(group) {
 
 // ---------- 무지개다리 일기 ----------
 
+const RAINBOW_BEAT_POOL = [
+    '여기서 이제 안 아프고 마음껏 뛰어다닐 수 있다는 것',
+    '여자친구/남자친구가 생겼다는 장난스러운 이야기',
+    '맛있는 걸 많이 먹어서 살쪘다는 귀여운 투정',
+    '한국어를 공부하고 있다는 엉뚱하고 사랑스러운 디테일',
+    '여기 풀밭·하늘·냄새·다른 동물 친구들 같은 주변 풍경 묘사',
+    '주인과 함께했던 기억이 문득 떠올랐다는 이야기',
+    '여기서 새로 생긴 재밌는 습관이나 하루 일과',
+];
+
 function buildRainbowPrompt(pet) {
     const name = (pet.name || '').trim() || speciesLabel(pet.species);
     const facts = [];
@@ -810,10 +850,15 @@ function buildRainbowPrompt(pet) {
     if ((pet.likes || []).length) facts.push(`좋아하는 것: ${pet.likes.join(', ')}`);
     if ((pet.habits || []).length) facts.push(`습관: ${pet.habits.join(', ')}`);
     const episodeLines = (pet.episodes || []).filter((e) => e && e.trim());
+    const beats = shuffle(RAINBOW_BEAT_POOL).slice(0, 4);
 
     return [
+        '[중요 — 이 요청은 지금까지의 대화나 캐릭터 카드와 완전히 독립된 별도의 요청이다]',
+        '캐릭터 카드, 이전 대화, 시스템 프롬프트에 어떤 출력 형식·번역 스키마·태그(예: 영어/한국어 이중 출력, <english_output>, <trans_korean>, <infoblock> 같은 것)가 지정되어 있더라도 절대 따르지 마라.',
+        '오직 순수한 한국어 문장만 작성하고, 그 어떤 XML/HTML 태그, 메타데이터, 영어 병기도 포함하지 마라.',
+        '',
         `당신은 지금 무지개다리 너머에 있는 반려동물 "${name}"입니다.`,
-        '주인에게 편지 같은 짧은 일기를 1인칭으로 씁니다.',
+        '주인에게 편지 같은 일기를 1인칭으로, 순수 한국어 산문으로만 씁니다.',
         '',
         '[반려동물 정보 - 참고용, 나열하지 말고 자연스럽게 녹여쓸 것]',
         facts.join(' / ') || '(정보 없음)',
@@ -823,19 +868,39 @@ function buildRainbowPrompt(pet) {
         '',
         '톤: 밝고, 다정하고, 장난스럽게. 절대 슬프거나 무겁게 쓰지 말 것 — 이별을 강조하거나 눈물을 유도하는 문장 금지.',
         '',
-        '다음 요소들을 자연스럽게 대부분 포함해줘 (억지로 다 쑤셔넣지는 말고):',
-        '- 여기서 이제 안 아프고 잘 지낸다는 것',
-        '- 여자친구/남자친구가 생겼다는 장난스러운 이야기',
-        '- 맛있는 걸 많이 먹어서 살쪘다는 귀여운 투정',
-        '- 한국어를 공부하고 있다는 엉뚱하고 사랑스러운 디테일',
-        '- 보고싶다, 사랑한다는 말',
-        '- 미안해하지 말라는 위로 (주인 잘못이 아니라는 것)',
-        '- 이제 아프지 않다는 말',
-        '- 슬퍼하지 말고 기다리고 있겠다는 말',
+        '이번 일기에는 특히 아래 요소들을 자연스럽게 엮어서 다채롭게 써줘 (문장 순서나 표현은 매번 다르게):',
+        beats.map((b) => `- ${b}`).join('\n'),
+        '- 보고싶다, 사랑한다는 말은 꼭 포함',
+        '- 미안해하지 말라는 위로 (주인 잘못이 아니라는 것)와, 슬퍼하지 말고 기다리고 있겠다는 말도 꼭 포함',
         '',
-        '길이: 6~10문장, 편지처럼 자연스럽게 이어지는 문단으로.',
-        '사람처럼 유식하게 말고, 그 아이만의 순수하고 사랑스러운 말투(짧은 문장, 느낌표)로 써줘.',
+        '길이: 10~15문장, 두세 문단으로 자연스럽게 이어지는 편지글.',
+        '사람처럼 유식하게 말고, 그 아이만의 순수하고 사랑스러운 말투(짧은 문장, 느낌표, 의성어)로 생생하고 구체적인 장면 묘사를 섞어서 써줘.',
+        '출력은 오직 일기 본문 텍스트만. 제목, 태그, 설명, 형식 표기는 전부 빼줘.',
     ].join('\n');
+}
+
+// 캐릭터 카드의 번역 스키마(<english_output>, <trans_korean>, <infoblock> 등)가
+// 그래도 섞여 나오는 경우를 대비한 후처리 — 한국어 본문만 최대한 뽑아낸다.
+function cleanDiaryText(raw) {
+    let text = (raw || '').trim();
+    if (!text) return text;
+
+    const koreanBlock = text.match(/<trans_korean>([\s\S]*?)<\/trans_korean>/i);
+    if (koreanBlock) {
+        text = koreanBlock[1];
+    } else {
+        text = text.replace(/<english_output>[\s\S]*?<\/english_output>/gi, (block) => {
+            const koreanParts = [...block.matchAll(/\(([^()]*[가-힣][^()]*)\)/g)].map((m) => m[1]);
+            return koreanParts.join(' ');
+        });
+    }
+
+    text = text.replace(/<infoblock>[\s\S]*?<\/infoblock>/gi, '');
+    text = text.replace(/<\/?[a-zA-Z_][^>]*>/g, '');
+    text = text.replace(/^(Date|Time|Weather|Vibe|Location|Pose|[A-Za-z]+\s?Outfit)::.*$/gim, '');
+    text = text.replace(/^"|"$/g, '');
+
+    return text.trim().replace(/\n{3,}/g, '\n\n');
 }
 
 async function populateProfileSelect() {
@@ -887,7 +952,8 @@ async function generateRainbowDiary(petId) {
 
         const quietPrompt = buildRainbowPrompt(pet);
         const diaryText = await context.generateQuietPrompt({ quietPrompt });
-        $box.text((diaryText || '').trim() || '일기를 받아오지 못했어요. 다시 시도해주세요.');
+        const cleaned = cleanDiaryText(diaryText);
+        $box.text(cleaned || '일기를 받아오지 못했어요. 다시 시도해주세요.');
     } catch (error) {
         console.error('[PetSummoner] 무지개다리 일기 생성 실패:', error);
         $box.text('일기를 쓰는 데 실패했어요. 잠시 후 다시 시도해주세요.');
@@ -906,6 +972,8 @@ async function generateRainbowDiary(petId) {
 // ---------- 패널 이벤트 바인딩 ----------
 
 function bindPanelEvents() {
+    unbindPanelEvents(); // 혹시 이전에 남아있는 바인딩이 있다면 먼저 정리 (중복 바인딩 방지)
+
     const context = SillyTavern.getContext();
     const settings = getSettings();
     const ns = '.petsumPanel';
@@ -918,7 +986,7 @@ function bindPanelEvents() {
         popScreen();
     });
     $(document).on(`click${ns}`, '.ps-rainbow-pick-row', function () {
-        rainbowSelectedPetId = $(this).data('pet-id');
+        setRainbowSelectedPetId($(this).data('pet-id'));
         pushScreen('rainbow-diary');
     });
 
