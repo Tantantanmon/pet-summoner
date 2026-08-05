@@ -20,7 +20,7 @@ const SCHEMA_VERSION = 3;
 
 const EMPTY_PET_FIELDS = Object.freeze({
     name: '', age: '', breed: '', gender: '', size: '', energy: '', honorific: '',
-    likes: [], dislikes: [], habits: [], sensitive: '', episodes: [],
+    personality: [], likes: [], dislikes: [], habits: [], sensitive: '', episodes: [],
 });
 
 const defaultSettings = Object.freeze({
@@ -258,6 +258,7 @@ function buildInstructionText() {
     const pool = [...facts, ...episodes];
     const picked = pickRotating(activeId, pool, 2);
     const energyHint = (pet.energy || '').trim();
+    const personalityHint = (pet.personality || []).map((t) => t?.trim()).filter(Boolean);
 
     const lines = [
         '[반려동물 등장 지시 — 시스템]',
@@ -270,8 +271,12 @@ function buildInstructionText() {
     if (hasTags) {
         lines.push(`지금 반응 톤(참고용 키워드, 그대로 쓰지 말 것): ${settings.selectedTags.join(', ')}`);
     }
-    if (picked.length || energyHint) {
-        const combined = energyHint ? [`평소 에너지는 ${energyHint} 편`, ...picked] : picked;
+    if (picked.length || energyHint || personalityHint.length) {
+        const combined = [
+            ...personalityHint,
+            ...(energyHint ? [`평소 에너지는 ${energyHint} 편`] : []),
+            ...picked,
+        ];
         lines.push(`이 아이의 성격·특징(참고용, 그대로 옮기지 말 것): ${combined.join(' / ')}`);
         lines.push('위 반응 톤을 그냥 일반적으로 표현하지 말고, 반드시 이 아이의 성격·특징이 묻어나는 방식으로 구체화해서 표현하라. 예를 들어 "등장하기"라도 활발한 아이와 차분한 아이는 등장하는 모습 자체가 달라야 한다.');
     }
@@ -777,6 +782,10 @@ function petCardHtml(pet, activeId) {
                     </div>
                 </div>
                 <div class="ps-field">
+                    <label>성격</label>
+                    ${tagListHtml(pet.id, 'personality', pet.personality)}
+                </div>
+                <div class="ps-field">
                     <label>좋아하는 것</label>
                     ${tagListHtml(pet.id, 'likes', pet.likes)}
                 </div>
@@ -958,6 +967,7 @@ function addTagFromInput(group) {
 function buildRainbowPrompt(pet) {
     const name = (pet.name || '').trim() || speciesLabel(pet.species);
     const honorific = (pet.honorific || '').trim();
+    const personality = (pet.personality || []).map((t) => t?.trim()).filter(Boolean);
     const facts = [];
     if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
     if (pet.gender) facts.push(pet.gender);
@@ -973,6 +983,7 @@ function buildRainbowPrompt(pet) {
         `당신은 지금 무지개다리 너머에 있는 반려동물 "${name}"입니다.`,
         '주인에게 편지 같은 일기를 1인칭으로, 순수 한국어 산문으로만 씁니다.',
         honorific ? `주인을 부를 때는 반드시 "${honorific}"라는 호칭을 자연스럽게 섞어서 사용해라 (예: "${honorific}, 나 오늘...").` : '',
+        personality.length ? `이 아이의 성격: ${personality.join(', ')}. 편지 전체의 말투·문체·표현 방식이 이 성격에서 자연스럽게 우러나와야 한다 (예: 소심함이면 조심스럽고 수줍은 문장, 애교많음이면 응석부리듯 달콤한 문장).` : '',
         '',
         '[반려동물 정보 - 참고용, 나열하지 말고 자연스럽게 녹여쓸 것]',
         facts.join(' / ') || '(정보 없음)',
@@ -1093,7 +1104,9 @@ function scrollRainbowChatToBottom() {
 function buildRainbowChatPrompt(pet, userMessage) {
     const name = (pet.name || '').trim() || speciesLabel(pet.species);
     const honorific = (pet.honorific || '').trim();
+    const personality = (pet.personality || []).map((t) => t?.trim()).filter(Boolean);
     const facts = [];
+    if (personality.length) facts.push(`성격: ${personality.join(', ')}`);
     if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
     if (pet.gender) facts.push(pet.gender);
     if (pet.energy?.trim()) facts.push(`평소 에너지는 ${pet.energy.trim()} 편`);
@@ -1109,7 +1122,7 @@ function buildRainbowChatPrompt(pet, userMessage) {
         facts.length ? `[이 아이의 성격·특징 — 참고용, 그대로 나열하지 말고 답변의 말투·태도에 자연스럽게 녹여낼 것] ${facts.join(' / ')}` : '',
         episode.length ? `[참고할 수 있는 추억, 굳이 안 써도 됨] ${episode.join(' / ')}` : '',
         `주인이 방금 이렇게 말했습니다: "${userMessage}"`,
-        '이 말에 자연스럽게, 아주 짧게(1~2문장) 대답하라. 답변은 반드시 위 성격·특징이 묻어나는 말투와 태도로 해야 한다 — 예를 들어 활발한 아이는 들뜨게, 새침한 아이는 새침하게, 좋아하는 것과 관련된 말이 나오면 더 신나게 반응하는 식으로.',
+        '이 말에 자연스럽게, 아주 짧게(1~2문장) 대답하라. 답변의 말투·태도·문장 길이·어미 자체가 위 성격에서 직접 우러나와야 한다 — 예를 들어 소심함이면 조심스럽고 짧게 우물거리듯, 애교많음이면 응석부리듯 달콤하게, 활발함이면 들뜨고 급하게, 새침함이면 새침하게. 좋아하는 것과 관련된 말이 나오면 더 신나게 반응하는 식으로.',
         '밝고 다정하게. 사람처럼 유식하게 말하지 말고, 순수하고 사랑스러운 반려동물 말투로.',
         '슬프거나 무겁게 답하지 말 것. 출력은 오직 대답 문장만, 따옴표나 태그 없이.',
     ].filter(Boolean).join('\n');
