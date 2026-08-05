@@ -1,17 +1,18 @@
 // 천사에게 - SillyTavern extension
 //
-// v7 변경점:
-// - 메인 패널이 "홈 메뉴(강아지/고양이/태그/무지개다리) -> 목록 -> 상세" 내비게이션 구조로 전환
-// - 좋아하는것/싫어하는것/습관·루틴을 태그 입력 방식으로 변경, 소리 스타일 제거, 성별 추가
-// - 건강 등 민감정보를 별도 섹션으로 분리 (낮은 확률로만, 조심스러운 톤으로 반영)
-// - 무지개다리 일기 기능 추가 (AI 생성, 전용 API 프로필 전환 지원)
-// - 새로고침 시 활성 펫이 풀리는 문제 보정 (APP_READY 재동기화)
-//
-// extension_prompt_types / extension_prompt_roles 는 getContext()에 항상 노출되지 않을 수 있어
-// script.js에서 직접 가져옵니다 (공식 문서에서도 허용하는 패턴입니다).
-import { extension_prompt_types, extension_prompt_roles } from '../../../../script.js';
-import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
-import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
+// 중요: 상대경로 import(../../../../script.js 등)는 ST 버전/설치 구조가 조금만 달라도
+// import 한 줄이 실패하면서 파일 전체가 로드되지 않는다(콘솔 로그조차 안 남는다).
+// 이 확장이 "다른 확장은 다 되는데 이것만 안 뜨는" 증상을 보였던 원인이 이것이었다.
+// 그래서 어떤 것도 import하지 않고, 필요한 값은 런타임에 getContext()에서 폴백과 함께 읽는다.
+
+// extension_prompt 위치/역할 상수 — getContext에 있으면 그걸 쓰고, 없으면 안전한 기본값을 쓴다.
+function getPromptConstants() {
+    const ctx = SillyTavern.getContext();
+    const types = ctx.extension_prompt_types || { IN_PROMPT: 0, IN_CHAT: 1, BEFORE_PROMPT: 2 };
+    const roles = ctx.extension_prompt_roles || { SYSTEM: 0, USER: 1, ASSISTANT: 2 };
+    return { types, roles };
+}
+
 
 const MODULE_NAME = 'pet_summoner';
 const PROMPT_KEY = 'pet_summoner_prompt';
@@ -297,14 +298,15 @@ function buildInstructionText() {
 function updateExtensionPrompt() {
     const context = SillyTavern.getContext();
     const text = buildInstructionText();
+    const { types, roles } = getPromptConstants();
 
     context.setExtensionPrompt(
         PROMPT_KEY,
         text,
-        extension_prompt_types.IN_CHAT,
+        types.IN_CHAT,
         0,
         false,
-        extension_prompt_roles.SYSTEM,
+        roles.SYSTEM,
     );
 }
 
@@ -1324,15 +1326,29 @@ function resetOneShotIfNeeded() {
 }
 
 // ---------- 슬래시 명령어 (빠른 응답에서 사용) ----------
+// 모듈 최상위에서 실행하지 않고 boot() 안에서 호출한다. 실패해도 확장 전체엔 영향 없다.
 
-SlashCommandParser.addCommandObject(SlashCommand.fromProps({
-    name: 'petsummon',
-    callback: () => {
-        openTagPopup();
-        return '';
-    },
-    helpString: '입력창 옆 소환 버튼을 누른 것과 동일하게, 지금 캐릭터에 활성화된 반려동물의 태그 선택 팝업을 엽니다. 빠른 응답(Quick Reply)에서 <code>/petsummon</code>으로 호출할 수 있습니다.',
-}));
+function registerSlashCommand() {
+    try {
+        const ctx = SillyTavern.getContext();
+        const SlashCommandParser = ctx.SlashCommandParser;
+        const SlashCommand = ctx.SlashCommand;
+        if (!SlashCommandParser || !SlashCommand) {
+            console.warn('[PetSummoner] SlashCommand API를 찾지 못해 /petsummon 명령어는 건너뜁니다.');
+            return;
+        }
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'petsummon',
+            callback: () => {
+                openTagPopup();
+                return '';
+            },
+            helpString: '입력창 옆 소환 버튼을 누른 것과 동일하게, 지금 캐릭터에 활성화된 반려동물의 태그 선택 팝업을 엽니다. 빠른 응답(Quick Reply)에서 <code>/petsummon</code>으로 호출할 수 있습니다.',
+        }));
+    } catch (error) {
+        console.warn('[PetSummoner] /petsummon 명령어 등록 실패(무시하고 계속):', error);
+    }
+}
 
 // ---------- 초기화 ----------
 
@@ -1405,6 +1421,7 @@ function boot(attemptsLeft = 20) {
 
     // 초기 삽입 시도 (실패해도 위 리스너들이 이미 등록되어 있으므로 이후 재시도됨)
     safeInjectAll();
+    registerSlashCommand();
     try {
         updateExtensionPrompt();
     } catch (error) {
