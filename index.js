@@ -60,6 +60,36 @@ function isMobile() {
     }
 }
 
+// 일부 모바일 브라우저/웹뷰에서는 click 이벤트가 터치에서 제대로 합성되지 않거나
+// 지연될 수 있어, touchend도 함께 걸어 확실히 반응하게 한다.
+// 같은 조작에서 click과 touchend가 둘 다 발생하는 기기에서는 중복 실행되지 않도록
+// 짧은 시간 안의 재호출은 건너뛴다.
+function bindTap(selector, handler, namespace = '') {
+    let lastTouchTime = 0;
+    $(document).on(`touchend${namespace}`, selector, function (e) {
+        lastTouchTime = Date.now();
+        handler.call(this, e);
+    });
+    $(document).on(`click${namespace}`, selector, function (e) {
+        if (Date.now() - lastTouchTime < 700) return;
+        handler.call(this, e);
+    });
+}
+
+// 순수 DOM 요소(createElement로 만든 모달 등)에 붙일 때 쓰는 버전.
+function addTapListener(el, handler) {
+    if (!el) return;
+    let lastTouchTime = 0;
+    el.addEventListener('touchend', (e) => {
+        lastTouchTime = Date.now();
+        handler(e);
+    });
+    el.addEventListener('click', (e) => {
+        if (Date.now() - lastTouchTime < 700) return;
+        handler(e);
+    });
+}
+
 // ---------- 설정 로드 / 마이그레이션 ----------
 
 function migrateIfNeeded(settings) {
@@ -399,18 +429,18 @@ function openTagPopup() {
         box.querySelector('#ps_tag_custom').value = settings.customNote || '';
 
         box.querySelectorAll('.petsum-pill').forEach((el) => {
-            el.addEventListener('click', () => {
+            addTapListener(el, () => {
                 const tag = el.getAttribute('data-tag');
                 el.classList.toggle('active');
                 if (selected.has(tag)) selected.delete(tag); else selected.add(tag);
             });
         });
 
-        overlay.addEventListener('click', (e) => {
+        addTapListener(overlay, (e) => {
             if (e.target === overlay) closeTagPopup();
         });
-        box.querySelector('#ps_tag_cancel').addEventListener('click', closeTagPopup);
-        box.querySelector('#ps_tag_apply').addEventListener('click', () => {
+        addTapListener(box.querySelector('#ps_tag_cancel'), closeTagPopup);
+        addTapListener(box.querySelector('#ps_tag_apply'), () => {
             const context = SillyTavern.getContext();
             settings.selectedTags = Array.from(selected);
             settings.customNote = box.querySelector('#ps_tag_custom').value;
@@ -550,10 +580,10 @@ async function openMainPanel() {
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
-        overlay.addEventListener('click', (e) => {
+        addTapListener(overlay, (e) => {
             if (e.target === overlay) closeMainPanel();
         });
-        box.querySelector('#ps_main_close').addEventListener('click', closeMainPanel);
+        addTapListener(box.querySelector('#ps_main_close'), closeMainPanel);
 
         bindPanelEvents();
         box.dataset.screenStack = JSON.stringify(['home']);
@@ -1096,20 +1126,20 @@ function bindPanelEvents() {
     const ns = '.petsumPanel';
 
     // 홈 내비게이션
-    $(document).on(`click${ns}`, '.ps-menu-row[data-nav]', function () {
+    bindTap('.ps-menu-row[data-nav]', function () {
         pushScreen($(this).data('nav'));
-    });
-    $(document).on(`click${ns}`, '#ps_main_back', function () {
+    }, ns);
+    bindTap('#ps_main_back', function () {
         popScreen();
-    });
-    $(document).on(`click${ns}`, '.ps-rainbow-pick-row', function () {
+    }, ns);
+    bindTap('.ps-rainbow-pick-row', function () {
         setRainbowSelectedPetId($(this).data('pet-id'));
         rainbowChatLog = [];
         pushScreen('rainbow-diary');
-    });
+    }, ns);
 
     // 펫 추가 (플로팅 + 버튼)
-    $(document).on(`click${ns}`, '#ps_add_pet_fab', function () {
+    bindTap('#ps_add_pet_fab', function () {
         const species = $(this).data('species');
         const name = window.prompt(`${speciesLabel(species)} 이름을 입력해주세요`, '');
         if (name === null) return;
@@ -1117,7 +1147,7 @@ function bindPanelEvents() {
         settings.pets[id] = { id, species, ...structuredClone(EMPTY_PET_FIELDS), name: name.trim() };
         context.saveSettingsDebounced();
         renderScreen(currentTopScreen());
-    });
+    }, ns);
 
     // 일반 필드 (이름/나이/품종/성별/크기/에너지/민감정보)
     $(document).on(`input${ns} change${ns}`, '.ps-pet-field', function () {
@@ -1148,7 +1178,7 @@ function bindPanelEvents() {
         refreshPetTagPills(id, field);
         $(this).val('');
     });
-    $(document).on(`click${ns}`, '.ps-pet-tag-remove', function () {
+    bindTap('.ps-pet-tag-remove', function () {
         const $pill = $(this).closest('.ps-pet-tag-pill');
         const id = $pill.data('pet-id');
         const field = $pill.data('field');
@@ -1157,7 +1187,7 @@ function bindPanelEvents() {
         settings.pets[id][field] = (settings.pets[id][field] || []).filter((t) => t !== tag);
         context.saveSettingsDebounced();
         refreshPetTagPills(id, field);
-    });
+    }, ns);
 
     // 활성 펫 지정 / 삭제
     $(document).on(`change${ns}`, '.ps-pet-activate', function () {
@@ -1166,7 +1196,7 @@ function bindPanelEvents() {
         updateExtensionPrompt();
         updateButtonUI();
     });
-    $(document).on(`click${ns}`, '.ps-pet-delete', function (e) {
+    bindTap('.ps-pet-delete', function (e) {
         e.stopPropagation();
         const id = $(this).data('pet-id');
         const pet = settings.pets[id];
@@ -1184,19 +1214,19 @@ function bindPanelEvents() {
         updateButtonUI();
         context.saveSettingsDebounced();
         renderScreen(currentTopScreen());
-    });
-    $(document).on(`click${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
+    }, ns);
+    $(document).on(`click${ns} touchend${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
         e.stopPropagation();
     });
 
     // 추억 에피소드
-    $(document).on(`click${ns}`, '.ps-episode-add', function () {
+    bindTap('.ps-episode-add', function () {
         const id = $(this).data('pet-id');
         settings.pets[id].episodes = settings.pets[id].episodes || [];
         settings.pets[id].episodes.push('');
         renderEpisodesFor(id);
         context.saveSettingsDebounced();
-    });
+    }, ns);
     $(document).on(`input${ns}`, '.ps-episode-text', function () {
         const $row = $(this).closest('.ps-episode-row');
         const id = $row.data('pet-id');
@@ -1204,14 +1234,14 @@ function bindPanelEvents() {
         settings.pets[id].episodes[idx] = $(this).val();
         context.saveSettingsDebounced();
     });
-    $(document).on(`click${ns}`, '.ps-episode-remove', function () {
+    bindTap('.ps-episode-remove', function () {
         const $row = $(this).closest('.ps-episode-row');
         const id = $row.data('pet-id');
         const idx = $row.data('index');
         settings.pets[id].episodes.splice(idx, 1);
         renderEpisodesFor(id);
         context.saveSettingsDebounced();
-    });
+    }, ns);
 
     // 태그 관리 (마법봉 홈 > 태그)
     for (const group of ['interaction', 'routine']) {
@@ -1225,7 +1255,7 @@ function bindPanelEvents() {
             addTagFromInput(group);
         });
     }
-    $(document).on(`click${ns}`, '.ps-tag-remove', function (e) {
+    bindTap('.ps-tag-remove', function (e) {
         e.stopPropagation();
         const $pill = $(this).closest('.petsum-pill-mgr');
         const group = $pill.data('group');
@@ -1233,19 +1263,19 @@ function bindPanelEvents() {
         settings.tags[group] = settings.tags[group].filter((t) => t !== tag);
         renderTagManager(group);
         context.saveSettingsDebounced();
-    });
+    }, ns);
 
     // 무지개다리
     $(document).on(`change${ns}`, '#ps_rainbow_profile_select', function () {
         settings.rainbowBridgeProfile = $(this).val();
         context.saveSettingsDebounced();
     });
-    $(document).on(`click${ns}`, '#ps_rainbow_generate_btn', function () {
+    bindTap('#ps_rainbow_generate_btn', function () {
         generateRainbowDiary($(this).data('pet-id'));
-    });
-    $(document).on(`click${ns}`, '#ps_rainbow_chat_send', function () {
+    }, ns);
+    bindTap('#ps_rainbow_chat_send', function () {
         sendRainbowChat($(this).data('pet-id'));
-    });
+    }, ns);
     $(document).on(`keydown${ns}`, '#ps_rainbow_chat_input', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1258,7 +1288,7 @@ function bindPanelEvents() {
         settings.oneShot = $(this).is(':checked');
         context.saveSettingsDebounced();
     });
-    $(document).on(`click${ns}`, '#ps_reset_all', function () {
+    bindTap('#ps_reset_all', function () {
         const confirmed = window.confirm('모든 반려동물 정보와 태그가 초기화됩니다. 계속할까요?');
         if (!confirmed) return;
 
@@ -1268,7 +1298,7 @@ function bindPanelEvents() {
         updateButtonUI();
         renderScreen('home');
         toastr.info('초기화되었습니다.', '천사에게');
-    });
+    }, ns);
 }
 
 function unbindPanelEvents() {
@@ -1352,22 +1382,23 @@ function boot(attemptsLeft = 20) {
     context.eventSource.on(context.event_types.GENERATION_ENDED, resetOneShotIfNeeded);
     context.eventSource.on(context.event_types.GENERATION_STOPPED, resetOneShotIfNeeded);
 
-    $(document).on('click', '#extensionsMenuButton', () => {
+    bindTap('#extensionsMenuButton', () => {
         setTimeout(() => {
             try { injectMenuItem(); } catch (error) { console.error('[PetSummoner] injectMenuItem 실패:', error); }
         }, 50);
     });
 
-    // 마법봉 메뉴 항목 / 입력창 버튼 클릭은 document에 위임한다.
-    // (요소 자체에 직접 붙이면, 그 DOM 노드가 나중에 재생성되는 환경에서 리스너가 사라질 수 있다.)
-    $(document).on('click', '#pet_summoner_menu_item', () => {
+    // 마법봉 메뉴 항목 / 입력창 버튼 클릭은 document에 위임하고, click+touchend를 함께 건다.
+    // (요소 자체에 직접 붙이면, 그 DOM 노드가 나중에 재생성되는 환경에서 리스너가 사라질 수 있고,
+    //  click만 걸면 일부 모바일 환경에서 터치가 click으로 합성되지 않을 수 있다.)
+    bindTap('#pet_summoner_menu_item', () => {
         openMainPanel();
     });
-    $(document).on('click', '#pet_summon_active', (e) => {
+    bindTap('#pet_summon_active', (e) => {
         if ($(e.target).closest('.ps-cancel-badge').length) return;
         openTagPopup();
     });
-    $(document).on('click', '#pet_summon_active .ps-cancel-badge', (e) => {
+    bindTap('#pet_summon_active .ps-cancel-badge', (e) => {
         e.stopPropagation();
         clearArmed();
     });
