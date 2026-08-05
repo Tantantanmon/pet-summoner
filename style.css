@@ -172,7 +172,6 @@
     cursor: pointer;
     color: #8e8e93;
     font-size: 16px;
-    margin-left: auto;
 }
 
 .ps-modal-close:hover {
@@ -195,31 +194,31 @@
 
 .ps-btn-ghost {
     background: #ffffff;
-    border: 1px solid rgba(10, 132, 255, 0.3);
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-size: 11px;
-    color: #0A84FF;
+    border: 1px solid #E5E5E8;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #7A7A7E;
     cursor: pointer;
 }
 
 .ps-btn-ghost:hover {
-    background: rgba(10, 132, 255, 0.06);
+    background: #F5F6F8;
 }
 
 .ps-btn-solid {
-    background: #0A84FF;
+    background: #3D6E94;
     border: none;
-    border-radius: 8px;
-    padding: 6px 16px;
-    font-size: 11px;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 12px;
     color: #ffffff;
     font-weight: 600;
     cursor: pointer;
 }
 
 .ps-btn-solid:hover {
-    background: #0870d6;
+    background: #335D80;
 }
 
 .ps-btn-reset {
@@ -656,24 +655,26 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #ffffff;
-    color: #0A84FF;
+    background: #F5F6F8;
+    color: #5A5A5E;
     font-size: 11px;
-    padding: 5px 11px;
+    padding: 6px 13px;
     border-radius: 999px;
     cursor: pointer;
-    border: 1px solid rgba(10, 132, 255, 0.3);
+    border: 1px solid transparent;
     user-select: none;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .petsum-pill:hover {
-    border-color: #0A84FF;
+    background: #EDEEF1;
 }
 
 .petsum-pill.active {
-    background: #0A84FF;
-    color: #ffffff;
-    border-color: #0A84FF;
+    background: #EAF1F8;
+    color: #3D6E94;
+    font-weight: 600;
+    border-color: transparent;
 }
 
 .petsum-pill-mgr,
@@ -837,6 +838,37 @@
     cursor: default;
 }
 
+/* 모바일 환경 전용 강제 레이아웃 수정 */
+@media (max-width: 430px), (pointer: coarse) {
+    .pet-summon-btn {
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 4px !important;
+    }
+
+    .pet-summon-btn i.ps-btn-icon {
+        font-size: 20px !important;
+    }
+
+    .ps-overlay,
+    .ps-overlay.ps-mobile {
+        z-index: 2147483647 !important;
+        position: fixed !important;
+        inset: 0 !important;
+    }
+
+    /* 바텀시트 대신, 화면 가운데에 어두운 배경과 함께 뜨는 일반 모달로 강제 전환 */
+    .ps-overlay.ps-mobile {
+        align-items: center !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .ps-box.ps-mobile {
+        margin: auto !important;
+        max-height: 70vh !important;
+    }
+}
+
 /* 무지개다리 - 대화(채팅) 섹션 */
 .ps-rainbow-chat-section {
     width: 100%;
@@ -919,35 +951,4 @@
 .ps-rainbow-chat-send:disabled {
     opacity: 0.6;
     cursor: default;
-}
-
-/* 모바일 환경 전용 강제 레이아웃 수정 */
-@media (max-width: 430px), (pointer: coarse) {
-    .pet-summon-btn {
-        width: 40px !important;
-        height: 40px !important;
-        margin: 0 4px !important;
-    }
-    
-    .pet-summon-btn i.ps-btn-icon {
-        font-size: 20px !important;
-    }
-
-    .ps-overlay, .ps-overlay.ps-mobile {
-        z-index: 2147483647 !important;
-        position: fixed !important;
-        inset: 0 !important;
-    }
-
-    /* 팝업을 다시 화면 가운데로 부르고 배경을 어둡게 */
-    .ps-overlay.ps-mobile {
-        align-items: center !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-    }
-
-    /* 화면 가운데서 최대 높이만 70%로 줄임 */
-    .ps-box.ps-mobile {
-        margin: auto !important;
-        max-height: 70vh !important;
-    }
 }

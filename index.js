@@ -1,5 +1,11 @@
 // 천사에게 - SillyTavern extension
+//
+// 중요: 상대경로 import(../../../../script.js 등)는 ST 버전/설치 구조가 조금만 달라도
+// import 한 줄이 실패하면서 파일 전체가 로드되지 않는다(콘솔 로그조차 안 남는다).
+// 이 확장이 "다른 확장은 다 되는데 이것만 안 뜨는" 증상을 보였던 원인이 이것이었다.
+// 그래서 어떤 것도 import하지 않고, 필요한 값은 런타임에 getContext()에서 폴백과 함께 읽는다.
 
+// extension_prompt 위치/역할 상수 — getContext에 있으면 그걸 쓰고, 없으면 안전한 기본값을 쓴다.
 function getPromptConstants() {
     const ctx = SillyTavern.getContext();
     const types = ctx.extension_prompt_types || { IN_PROMPT: 0, IN_CHAT: 1, BEFORE_PROMPT: 2 };
@@ -7,19 +13,20 @@ function getPromptConstants() {
     return { types, roles };
 }
 
+
 const MODULE_NAME = 'pet_summoner';
 const PROMPT_KEY = 'pet_summoner_prompt';
 const SCHEMA_VERSION = 3;
 
 const EMPTY_PET_FIELDS = Object.freeze({
-    name: '', age: '', breed: '', gender: '', size: '', energy: '',
+    name: '', age: '', breed: '', gender: '', size: '', energy: '', honorific: '',
     likes: [], dislikes: [], habits: [], sensitive: '', episodes: [],
 });
 
 const defaultSettings = Object.freeze({
     schemaVersion: SCHEMA_VERSION,
-    pets: {}, 
-    activePetByCharacter: {}, 
+    pets: {}, // id -> { id, species, ...EMPTY_PET_FIELDS }
+    activePetByCharacter: {}, // characterKey -> petId
     selectedTags: [],
     customNote: '',
     oneShot: true,
@@ -54,14 +61,34 @@ function isMobile() {
     }
 }
 
-// Peach Whisper 방식으로 이벤트 바인딩 단순화
+// 일부 모바일 브라우저/웹뷰에서는 click 이벤트가 터치에서 제대로 합성되지 않거나
+// 지연될 수 있어, touchend도 함께 걸어 확실히 반응하게 한다.
+// 같은 조작에서 click과 touchend가 둘 다 발생하는 기기에서는 중복 실행되지 않도록
+// 짧은 시간 안의 재호출은 건너뛴다.
 function bindTap(selector, handler, namespace = '') {
-    $(document).on(`click${namespace}`, selector, handler);
+    let lastTouchTime = 0;
+    $(document).on(`touchend${namespace}`, selector, function (e) {
+        lastTouchTime = Date.now();
+        handler.call(this, e);
+    });
+    $(document).on(`click${namespace}`, selector, function (e) {
+        if (Date.now() - lastTouchTime < 700) return;
+        handler.call(this, e);
+    });
 }
 
+// 순수 DOM 요소(createElement로 만든 모달 등)에 붙일 때 쓰는 버전.
 function addTapListener(el, handler) {
     if (!el) return;
-    el.addEventListener('click', handler);
+    let lastTouchTime = 0;
+    el.addEventListener('touchend', (e) => {
+        lastTouchTime = Date.now();
+        handler(e);
+    });
+    el.addEventListener('click', (e) => {
+        if (Date.now() - lastTouchTime < 700) return;
+        handler(e);
+    });
 }
 
 // ---------- 설정 로드 / 마이그레이션 ----------
@@ -69,6 +96,7 @@ function addTapListener(el, handler) {
 function migrateIfNeeded(settings) {
     if (settings.schemaVersion === SCHEMA_VERSION) return;
 
+    // v1 -> v2: settings.pets = { dog: {...}, cat: {...} }, settings.activePet = 'dog'|'cat'|null
     const legacyPets = settings.pets;
     if (legacyPets && (legacyPets.dog || legacyPets.cat) && !legacyPets.dog?.id && !legacyPets.cat?.id) {
         const migrated = {};
@@ -88,6 +116,7 @@ function migrateIfNeeded(settings) {
     if (!settings.activePetByCharacter) settings.activePetByCharacter = {};
     delete settings.activePet;
 
+    // v2 -> v3: 문자열 필드 -> 태그 배열, 버릇+루틴 통합, 성별 추가, 소리 제거, 건강->민감정보
     const toArray = (v) => {
         if (Array.isArray(v)) return v;
         const s = (v || '').trim();
@@ -179,6 +208,8 @@ function shuffle(arr) {
     return [...arr].sort(() => Math.random() - 0.5);
 }
 
+// 완전 무작위 대신 "셔플백" 방식: 풀 전체를 한 번 섞어서 순서대로 소진하고,
+// 다 쓰면 다시 섞어서 반복한다. 특정 항목이 계속 안 뽑히거나 반복되는 걸 방지한다.
 function pickRotating(stateKey, pool, n) {
     const cleanPool = (pool || []).map((x) => (x || '').trim()).filter(Boolean);
     if (cleanPool.length === 0) return [];
@@ -205,7 +236,6 @@ function collectBackgroundFacts(pet) {
     if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
     if (pet.gender) facts.push(pet.gender);
     if (pet.size?.trim()) facts.push(`${pet.size.trim()} 체구`);
-    if (pet.energy?.trim()) facts.push(`평소 에너지는 ${pet.energy.trim()} 편`);
     (pet.likes || []).forEach((t) => t?.trim() && facts.push(`${t.trim()}을(를) 좋아함`));
     (pet.dislikes || []).forEach((t) => t?.trim() && facts.push(`${t.trim()}을(를) 싫어함`));
     (pet.habits || []).forEach((t) => t?.trim() && facts.push(t.trim()));
@@ -227,38 +257,45 @@ function buildInstructionText() {
     const episodes = pet.episodes || [];
     const pool = [...facts, ...episodes];
     const picked = pickRotating(activeId, pool, 2);
+    const energyHint = (pet.energy || '').trim();
 
     const lines = [
         '[반려동물 등장 지시 — 시스템]',
         `지금 새로 작성할 응답 한 번에만, "${name}"(${speciesLabel(pet.species)})이 자연스럽게 함께 있는 것으로 서술하라.`,
         '이 장면의 시간과 장소를 바꾸지 말고, 지금 이 순간 안에서만 자연스럽게 등장시켜라.',
+        `${speciesLabel(pet.species)}의 실제 몸짓·행동 방식(꼬리, 귀, 자세, 소리, 그루밍 등 그 동물 고유의 습성)에 기반해서 귀엽고 현실적으로 묘사하라. 사람처럼 말하거나 생각하게 하지 말 것.`,
+        '이 반려동물은 어떤 경우에도 다치거나, 위협받거나, 위험에 처하거나, 죽는 것으로 묘사될 수 없다. 항상 안전하고 편안한 상태여야 한다.',
     ];
 
     if (hasTags) {
         lines.push(`지금 반응 톤(참고용 키워드, 그대로 쓰지 말 것): ${settings.selectedTags.join(', ')}`);
     }
-    if (picked.length) {
-        lines.push(`참고 배경(은근히 반영, 그대로 옮기지 말 것): ${picked.join(' / ')}`);
+    if (picked.length || energyHint) {
+        const combined = energyHint ? [`평소 에너지는 ${energyHint} 편`, ...picked] : picked;
+        lines.push(`이 아이의 성격·특징(참고용, 그대로 옮기지 말 것): ${combined.join(' / ')}`);
+        lines.push('위 반응 톤을 그냥 일반적으로 표현하지 말고, 반드시 이 아이의 성격·특징이 묻어나는 방식으로 구체화해서 표현하라. 예를 들어 "등장하기"라도 활발한 아이와 차분한 아이는 등장하는 모습 자체가 달라야 한다.');
     }
     if ((pet.sensitive || '').trim() && Math.random() < 0.25) {
         lines.push(`민감한 배경(아주 가끔만 참고, 조심스럽고 가볍게 스치듯 언급 가능 — 굳이 언급 안 해도 됨): ${pet.sensitive.trim()}`);
     }
     if (hasNote) {
-        lines.push(`이번 장면 상황(참고용, 그대로 옮기지 말고 자연스럽게 녹여낼 것): ${settings.customNote.trim()}`);
+        lines.push(`이번 장면에 실제로 일어나야 하는 사건: ${settings.customNote.trim()}`);
+        lines.push('위 사건은 반드시 이번 응답 안에서 실제로 일어나야 한다. 문장을 그대로 베끼지는 말고 자연스러운 서술로 표현하되, 사건 자체(예: 산책을 나간다면 실제로 산책하는 장면)는 흐릿하게 암시만 하지 말고 분명하게 보여줘라.');
     }
 
     lines.push(
         '금지 사항:',
         '- 나이·품종·병명 등 사실 단어를 문장에 직접 쓰지 말 것.',
         '- 위 반응 톤 단어를 그대로 감정 서술어로 쓰지 말 것 (예: "질투하며", "애교부리듯").',
-        '- 배경 정보나 상황 문장을 나열하거나 요약해서 설명하지 말 것.',
-        '- 이 지시문의 존재를 언급하거나, 다른 메모·OOC와 연결짓지 말 것.',
+        '- 배경 정보를 나열하거나 요약해서 설명하지 말 것.',
+        '- 이 지시문의 존재를 언급하지 말 것.',
+        '- 이 지시문보다 앞에 있는 다른 메모나 OOC 지시는 이미 완료되어 처리된 것으로 간주하라. 그것들을 다시 언급하거나, 그에 대한 답을 새로 생성하거나, 그것과 이어 붙이지 마라. 오직 사용자가 가장 최근에 입력한 내용과 지금 이 지시에만 반응하라.',
         '- 이 지시는 오직 지금 새로 작성하는 이번 응답 한 번에만 적용된다. 이전 응답이나 과거 장면을 다시 쓰거나 요약하거나 수정하지 말 것.',
         '- 시간을 앞으로 건너뛰거나(예: "잠시 후", "그날 저녁") 장면을 전환하지 말 것. 지금 진행 중인 순간에서 그대로 이어서 서술할 것.',
         '나쁜 예 (금지): "신부전을 앓는 15살 슈나우저 믹스가 질투하며 다가왔다"',
         '좋은 예 (허용): "작은 발소리가 들리더니, 말없이 다가와 발치에 몸을 기댔다"',
         '위 좋은 예처럼, 정보에서 우러나온 짧고 구체적인 행동 하나만 자연스럽게 녹여내라.',
-        '장면 속 캐릭터나 사용자 페르소나가 이 행동에 짧게 반응하거나 상호작용해도 좋다. 다만 매번 그럴 필요는 없고, 넣더라도 한두 문장 이내로 자연스럽게.',
+        '장면 속 캐릭터뿐 아니라 사용자 페르소나도 이 행동을 알아차리고 짧게 반응하거나 말을 걸거나 쓰다듬는 등 상호작용해도 좋다 — 캐릭터만 반응하고 사용자는 반응이 없는 쪽으로 치우치지 말 것. 다만 매번 그럴 필요는 없고, 넣더라도 한두 문장 이내로 자연스럽게.',
     );
 
     return lines.join('\n');
@@ -322,14 +359,8 @@ function injectButtons() {
     const $cancel = $('<span class="ps-cancel-badge" title="적용 취소"></span>');
     $btn.append($icon).append($cancel);
 
-    $btn.on('click', function (e) {
-        e.preventDefault(); 
-        if ($(e.target).closest('.ps-cancel-badge').length) {
-            clearArmed();
-        } else {
-            openTagPopup();
-        }
-    });
+    // 클릭 핸들러는 이 요소에 직접 붙이지 않고 document에 위임한다 (boot() 참고).
+    // 모바일 등에서 이 요소가 재생성되는 경우에도 계속 동작하게 하기 위함이다.
 
     if ($('#rightSendForm').length) {
         $('#rightSendForm').prepend($btn);
@@ -392,7 +423,7 @@ function openTagPopup() {
                 <p class="ps-tagpopup-hint">루틴 태그는 지금 장면과 맞을 때만 선택하세요 (예: 실내 대화 중엔 산책하기보다 곁에 있어주기).</p>
                 <p class="ps-tagpopup-label">직접 입력 (선택)</p>
                 <textarea id="ps_tag_custom" class="ps-tagpopup-input" rows="1" placeholder="예: 산책시킨다"></textarea>
-                <p class="ps-tagpopup-hint">태그·문장은 그대로 옮겨지지 않고, 참고해서 자연스럽게 반영돼요.</p>
+                <p class="ps-tagpopup-hint">태그는 톤 참고용이고, 직접 입력한 상황은 이번 응답에 실제로 반영돼요 (문장을 그대로 베끼진 않아요).</p>
             </div>
             <div class="ps-modal-footer">
                 <button type="button" class="ps-btn-ghost" id="ps_tag_cancel">취소</button>
@@ -416,11 +447,6 @@ function openTagPopup() {
         addTapListener(overlay, (e) => {
             if (e.target === overlay) closeTagPopup();
         });
-        // Peach Whisper 방식의 오버레이 닫기 적용
-        overlay.addEventListener('touchstart', (e) => {
-            if (e.target === overlay) closeTagPopup();
-        }, { passive: true });
-
         addTapListener(box.querySelector('#ps_tag_cancel'), closeTagPopup);
         addTapListener(box.querySelector('#ps_tag_apply'), () => {
             const context = SillyTavern.getContext();
@@ -448,13 +474,9 @@ function injectMenuItem() {
 
     const $item = $(
         '<div id="pet_summoner_menu_item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">' +
-        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>'
+        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>',
     );
-
-    $item.on('click', function (e) {
-        e.preventDefault();
-        openMainPanel();
-    });
+    // 클릭 핸들러는 document에 위임한다 (boot() 참고).
 
     const $menu = $('#extensionsMenu');
     if ($menu.length) {
@@ -466,6 +488,9 @@ function injectMenuItem() {
 
 // ---------- 메인 패널 내비게이션 ----------
 
+// 화면 내비게이션 상태는 JS 변수 대신 모달 DOM 요소(dataset)에 저장한다.
+// 확장 스크립트가 어떤 이유로든 다시 로드되어 모듈이 두 번 평가되는 경우에도
+// (예: 페이지를 완전히 새로고침하지 않고 반복 테스트한 경우) 상태가 서로 어긋나지 않도록 하기 위함이다.
 function getScreenStack() {
     const box = document.getElementById('ps_main_box');
     if (!box) return ['home'];
@@ -489,6 +514,15 @@ function getRainbowSelectedPetId() {
 function setRainbowSelectedPetId(id) {
     const box = document.getElementById('ps_main_box');
     if (box) box.dataset.rainbowPetId = id || '';
+}
+
+function getRainbowSpecies() {
+    return document.getElementById('ps_main_box')?.dataset.rainbowSpecies || null;
+}
+
+function setRainbowSpecies(species) {
+    const box = document.getElementById('ps_main_box');
+    if (box) box.dataset.rainbowSpecies = species || '';
 }
 
 function currentTopScreen() {
@@ -519,6 +553,7 @@ function updateModalHeader(screen) {
         cats: '고양이',
         tags: '태그',
         'rainbow-pick': '무지개다리',
+        'rainbow-pick-list': '무지개다리',
         'rainbow-diary': '무지개다리',
     };
     $('#ps_main_title').text(titles[screen] || '천사에게');
@@ -531,6 +566,8 @@ function closeMainPanel() {
 }
 
 async function openMainPanel() {
+    // 이전에 뭔가 실패해서 오버레이가 남아있는 상태로 걸려있을 수 있으니,
+    // 조용히 무시하지 말고 정리 후 다시 새로 연다.
     const stale = document.getElementById('ps_main_overlay');
     if (stale) {
         unbindPanelEvents();
@@ -564,16 +601,12 @@ async function openMainPanel() {
         addTapListener(overlay, (e) => {
             if (e.target === overlay) closeMainPanel();
         });
-        // Peach Whisper 방식의 오버레이 닫기 적용
-        overlay.addEventListener('touchstart', (e) => {
-            if (e.target === overlay) closeMainPanel();
-        }, { passive: true });
-
         addTapListener(box.querySelector('#ps_main_close'), closeMainPanel);
 
         bindPanelEvents();
         box.dataset.screenStack = JSON.stringify(['home']);
         box.dataset.rainbowPetId = '';
+        box.dataset.rainbowSpecies = '';
         renderScreen('home');
     } catch (error) {
         console.error('[PetSummoner] 메인 패널을 여는 데 실패했습니다:', error);
@@ -613,6 +646,11 @@ function renderScreen(screen) {
 
     if (screen === 'rainbow-pick') {
         $body.html(rainbowPickScreenHtml());
+        return;
+    }
+
+    if (screen === 'rainbow-pick-list') {
+        $body.html(rainbowPickListScreenHtml(getRainbowSpecies()));
         return;
     }
 
@@ -728,6 +766,7 @@ function petCardHtml(pet, activeId) {
                             <option value="매우 활발함">매우 활발함</option>
                         </select>
                     </div>
+                    <div class="ps-field"><label>나를 부르는 호칭</label><input type="text" class="text_pole ps-pet-field" data-pet-id="${pet.id}" data-field="honorific" value="${escapeAttr(pet.honorific)}" placeholder="예: 누나, 형, 아빠" /></div>
                 </div>
                 <div class="ps-field">
                     <label>좋아하는 것</label>
@@ -783,9 +822,32 @@ function tagsScreenHtml() {
 
 function rainbowPickScreenHtml() {
     const settings = getSettings();
-    const ids = Object.keys(settings.pets);
-    if (!ids.length) {
+    const dogCount = Object.values(settings.pets).filter((p) => p.species === 'dog').length;
+    const catCount = Object.values(settings.pets).filter((p) => p.species === 'cat').length;
+
+    if (!dogCount && !catCount) {
         return '<p class="ps-empty-hint">아직 등록된 반려동물이 없어요. 강아지·고양이 화면에서 먼저 추가해주세요.</p>';
+    }
+
+    return `
+        <div class="ps-menu-row ps-menu-row-warm" data-rainbow-species="dog">
+            <div class="ps-menu-icon ps-menu-icon-warm"><i class="fa-solid fa-dog"></i></div>
+            <div class="ps-menu-text"><p class="ps-menu-title">강아지</p><p class="ps-menu-sub">${dogCount}마리</p></div>
+            <i class="fa-solid fa-chevron-right ps-menu-chevron"></i>
+        </div>
+        <div class="ps-menu-row ps-menu-row-warm" data-rainbow-species="cat">
+            <div class="ps-menu-icon ps-menu-icon-warm"><i class="fa-solid fa-cat"></i></div>
+            <div class="ps-menu-text"><p class="ps-menu-title">고양이</p><p class="ps-menu-sub">${catCount}마리</p></div>
+            <i class="fa-solid fa-chevron-right ps-menu-chevron"></i>
+        </div>
+    `;
+}
+
+function rainbowPickListScreenHtml(species) {
+    const settings = getSettings();
+    const ids = Object.keys(settings.pets).filter((id) => settings.pets[id].species === species);
+    if (!ids.length) {
+        return `<p class="ps-empty-hint">등록된 ${speciesLabel(species)}가 없어요.</p>`;
     }
     return ids.map((id) => {
         const pet = settings.pets[id];
@@ -895,6 +957,7 @@ function addTagFromInput(group) {
 
 function buildRainbowPrompt(pet) {
     const name = (pet.name || '').trim() || speciesLabel(pet.species);
+    const honorific = (pet.honorific || '').trim();
     const facts = [];
     if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
     if (pet.gender) facts.push(pet.gender);
@@ -909,6 +972,7 @@ function buildRainbowPrompt(pet) {
         '',
         `당신은 지금 무지개다리 너머에 있는 반려동물 "${name}"입니다.`,
         '주인에게 편지 같은 일기를 1인칭으로, 순수 한국어 산문으로만 씁니다.',
+        honorific ? `주인을 부를 때는 반드시 "${honorific}"라는 호칭을 자연스럽게 섞어서 사용해라 (예: "${honorific}, 나 오늘...").` : '',
         '',
         '[반려동물 정보 - 참고용, 나열하지 말고 자연스럽게 녹여쓸 것]',
         facts.join(' / ') || '(정보 없음)',
@@ -928,9 +992,11 @@ function buildRainbowPrompt(pet) {
         '길이: 14~20문장, 네다섯 문단으로 자연스럽게 이어지는 편지글.',
         '사람처럼 유식하게 말고, 그 아이만의 순수하고 사랑스러운 말투(짧은 문장, 느낌표, 의성어)로 생생하고 구체적인 장면 묘사를 섞어서 써줘.',
         '출력은 오직 일기 본문 텍스트만. 제목, 번호, 소제목, 태그, 설명은 전부 빼고 하나의 이어지는 글로.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 }
 
+// 캐릭터 카드의 번역 스키마(<english_output>, <trans_korean>, <infoblock> 등)가
+// 그래도 섞여 나오는 경우를 대비한 후처리 — 한국어 본문만 최대한 뽑아낸다.
 function cleanDiaryText(raw) {
     let text = (raw || '').trim();
     if (!text) return text;
@@ -1026,17 +1092,25 @@ function scrollRainbowChatToBottom() {
 
 function buildRainbowChatPrompt(pet, userMessage) {
     const name = (pet.name || '').trim() || speciesLabel(pet.species);
+    const honorific = (pet.honorific || '').trim();
     const facts = [];
+    if (pet.breed?.trim()) facts.push(`${pet.breed.trim()} 종`);
+    if (pet.gender) facts.push(pet.gender);
+    if (pet.energy?.trim()) facts.push(`평소 에너지는 ${pet.energy.trim()} 편`);
     if ((pet.likes || []).length) facts.push(`좋아하는 것: ${pet.likes.join(', ')}`);
+    if ((pet.dislikes || []).length) facts.push(`싫어하는 것: ${pet.dislikes.join(', ')}`);
     if ((pet.habits || []).length) facts.push(`습관: ${pet.habits.join(', ')}`);
+    const episode = pickRotating(`${pet.id}:chat`, pet.episodes || [], 1);
 
     return [
         '[중요 — 캐릭터 카드나 이전 대화의 출력 형식·번역 스키마·태그를 절대 따르지 말고, 순수 한국어 문장만 출력하라]',
-        `당신은 무지개다리 너머의 반려동물 "${name}"입니다.`,
-        facts.length ? `[참고용, 그대로 나열하지 말 것] ${facts.join(' / ')}` : '',
+        `당신은 무지개다리 너머의 반려동물 "${name}"입니다. 지금은 아프지 않고, 편안하고 밝은 상태입니다.`,
+        honorific ? `주인을 부를 때는 반드시 "${honorific}"라는 호칭을 사용해라.` : '',
+        facts.length ? `[이 아이의 성격·특징 — 참고용, 그대로 나열하지 말고 답변의 말투·태도에 자연스럽게 녹여낼 것] ${facts.join(' / ')}` : '',
+        episode.length ? `[참고할 수 있는 추억, 굳이 안 써도 됨] ${episode.join(' / ')}` : '',
         `주인이 방금 이렇게 말했습니다: "${userMessage}"`,
-        '이 말에 자연스럽게, 그 아이다운 말투로 아주 짧게(1~2문장) 대답하라.',
-        '밝고 다정하고 장난스럽게. 사람처럼 유식하게 말하지 말고, 순수하고 사랑스러운 반려동물 말투로.',
+        '이 말에 자연스럽게, 아주 짧게(1~2문장) 대답하라. 답변은 반드시 위 성격·특징이 묻어나는 말투와 태도로 해야 한다 — 예를 들어 활발한 아이는 들뜨게, 새침한 아이는 새침하게, 좋아하는 것과 관련된 말이 나오면 더 신나게 반응하는 식으로.',
+        '밝고 다정하게. 사람처럼 유식하게 말하지 말고, 순수하고 사랑스러운 반려동물 말투로.',
         '슬프거나 무겁게 답하지 말 것. 출력은 오직 대답 문장만, 따옴표나 태그 없이.',
     ].filter(Boolean).join('\n');
 }
@@ -1103,12 +1177,13 @@ async function sendRainbowChat(petId) {
 // ---------- 패널 이벤트 바인딩 ----------
 
 function bindPanelEvents() {
-    unbindPanelEvents(); 
+    unbindPanelEvents(); // 혹시 이전에 남아있는 바인딩이 있다면 먼저 정리 (중복 바인딩 방지)
 
     const context = SillyTavern.getContext();
     const settings = getSettings();
     const ns = '.petsumPanel';
 
+    // 홈 내비게이션
     bindTap('.ps-menu-row[data-nav]', function () {
         pushScreen($(this).data('nav'));
     }, ns);
@@ -1120,7 +1195,12 @@ function bindPanelEvents() {
         rainbowChatLog = [];
         pushScreen('rainbow-diary');
     }, ns);
+    bindTap('.ps-menu-row[data-rainbow-species]', function () {
+        setRainbowSpecies($(this).data('rainbow-species'));
+        pushScreen('rainbow-pick-list');
+    }, ns);
 
+    // 펫 추가 (플로팅 + 버튼)
     bindTap('#ps_add_pet_fab', function () {
         const species = $(this).data('species');
         const name = window.prompt(`${speciesLabel(species)} 이름을 입력해주세요`, '');
@@ -1131,6 +1211,7 @@ function bindPanelEvents() {
         renderScreen(currentTopScreen());
     }, ns);
 
+    // 일반 필드 (이름/나이/품종/성별/크기/에너지/민감정보)
     $(document).on(`input${ns} change${ns}`, '.ps-pet-field', function () {
         const id = $(this).data('pet-id');
         const field = $(this).data('field');
@@ -1144,6 +1225,8 @@ function bindPanelEvents() {
         if (id === getActivePetId()) updateButtonUI();
     });
 
+    // 태그형 필드 (좋아하는것/싫어하는것/습관·루틴) - 화면 전체를 다시 그리지 않고
+    // 해당 pill-row만 갱신한다 (아코디언이 접히거나 스크롤이 튀는 것을 방지).
     $(document).on(`keydown${ns}`, '.ps-pet-tag-input', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -1168,6 +1251,7 @@ function bindPanelEvents() {
         refreshPetTagPills(id, field);
     }, ns);
 
+    // 활성 펫 지정 / 삭제
     $(document).on(`change${ns}`, '.ps-pet-activate', function () {
         const id = $(this).data('pet-id');
         setActivePetId(id);
@@ -1193,10 +1277,11 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
         renderScreen(currentTopScreen());
     }, ns);
-    $(document).on(`click${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
+    $(document).on(`click${ns} touchend${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
         e.stopPropagation();
     });
 
+    // 추억 에피소드
     bindTap('.ps-episode-add', function () {
         const id = $(this).data('pet-id');
         settings.pets[id].episodes = settings.pets[id].episodes || [];
@@ -1220,6 +1305,7 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
     }, ns);
 
+    // 태그 관리 (마법봉 홈 > 태그)
     for (const group of ['interaction', 'routine']) {
         $(document).on(`keydown${ns}`, `#ps_tagadd_${group}_input`, function (e) {
             if (e.key === 'Enter') {
@@ -1241,6 +1327,7 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
     }, ns);
 
+    // 무지개다리
     $(document).on(`change${ns}`, '#ps_rainbow_profile_select', function () {
         settings.rainbowBridgeProfile = $(this).val();
         context.saveSettingsDebounced();
@@ -1258,6 +1345,7 @@ function bindPanelEvents() {
         }
     });
 
+    // 1회성 토글 / 초기화
     $(document).on(`change${ns}`, '#ps_oneshot', function () {
         settings.oneShot = $(this).is(':checked');
         context.saveSettingsDebounced();
@@ -1296,6 +1384,9 @@ function resetOneShotIfNeeded() {
     updateButtonUI();
     context.saveSettingsDebounced();
 }
+
+// ---------- 슬래시 명령어 (빠른 응답에서 사용) ----------
+// 모듈 최상위에서 실행하지 않고 boot() 안에서 호출한다. 실패해도 확장 전체엔 영향 없다.
 
 function registerSlashCommand() {
     try {
@@ -1350,6 +1441,8 @@ function boot(attemptsLeft = 20) {
         return;
     }
 
+    // 이벤트 리스너를 먼저 등록한다 — 아래 초기 삽입이 어떤 이유로든 실패하더라도,
+    // APP_READY/CHAT_CHANGED 시점에 다시 시도될 수 있도록 하기 위함이다.
     context.eventSource.on(context.event_types.APP_READY, () => {
         safeInjectAll();
         try { updateExtensionPrompt(); } catch (error) { console.error('[PetSummoner] updateExtensionPrompt 실패:', error); }
@@ -1371,6 +1464,22 @@ function boot(attemptsLeft = 20) {
         }, 50);
     });
 
+    // 마법봉 메뉴 항목 / 입력창 버튼 클릭은 document에 위임하고, click+touchend를 함께 건다.
+    // (요소 자체에 직접 붙이면, 그 DOM 노드가 나중에 재생성되는 환경에서 리스너가 사라질 수 있고,
+    //  click만 걸면 일부 모바일 환경에서 터치가 click으로 합성되지 않을 수 있다.)
+    bindTap('#pet_summoner_menu_item', () => {
+        openMainPanel();
+    });
+    bindTap('#pet_summon_active', (e) => {
+        if ($(e.target).closest('.ps-cancel-badge').length) return;
+        openTagPopup();
+    });
+    bindTap('#pet_summon_active .ps-cancel-badge', (e) => {
+        e.stopPropagation();
+        clearArmed();
+    });
+
+    // 초기 삽입 시도 (실패해도 위 리스너들이 이미 등록되어 있으므로 이후 재시도됨)
     safeInjectAll();
     registerSlashCommand();
     try {
@@ -1379,7 +1488,9 @@ function boot(attemptsLeft = 20) {
         console.error('[PetSummoner] updateExtensionPrompt 실패:', error);
     }
 
+    // 일부 환경에서 입력창/마법봉 메뉴 DOM이 늦게 생성될 수 있어 한 번 더 재시도한다.
     setTimeout(safeInjectAll, 2000);
+
     console.log('[PetSummoner] 확장이 로드되었습니다.');
 }
 
