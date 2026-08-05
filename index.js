@@ -321,11 +321,8 @@ function injectButtons() {
     const $cancel = $('<span class="ps-cancel-badge" title="적용 취소"></span>');
     $btn.append($icon).append($cancel);
 
-    $btn.on('click', () => openTagPopup());
-    $cancel.on('click', (e) => {
-        e.stopPropagation();
-        clearArmed();
-    });
+    // 클릭 핸들러는 이 요소에 직접 붙이지 않고 document에 위임한다 (boot() 참고).
+    // 모바일 등에서 이 요소가 재생성되는 경우에도 계속 동작하게 하기 위함이다.
 
     if ($('#rightSendForm').length) {
         $('#rightSendForm').prepend($btn);
@@ -441,7 +438,7 @@ function injectMenuItem() {
         '<div id="pet_summoner_menu_item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">' +
         '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>',
     );
-    $item.on('click', openMainPanel);
+    // 클릭 핸들러는 document에 위임한다 (boot() 참고).
 
     const $menu = $('#extensionsMenu');
     if ($menu.length) {
@@ -1359,6 +1356,20 @@ function boot(attemptsLeft = 20) {
         setTimeout(() => {
             try { injectMenuItem(); } catch (error) { console.error('[PetSummoner] injectMenuItem 실패:', error); }
         }, 50);
+    });
+
+    // 마법봉 메뉴 항목 / 입력창 버튼 클릭은 document에 위임한다.
+    // (요소 자체에 직접 붙이면, 그 DOM 노드가 나중에 재생성되는 환경에서 리스너가 사라질 수 있다.)
+    $(document).on('click', '#pet_summoner_menu_item', () => {
+        openMainPanel();
+    });
+    $(document).on('click', '#pet_summon_active', (e) => {
+        if ($(e.target).closest('.ps-cancel-badge').length) return;
+        openTagPopup();
+    });
+    $(document).on('click', '#pet_summon_active .ps-cancel-badge', (e) => {
+        e.stopPropagation();
+        clearArmed();
     });
 
     // 초기 삽입 시도 (실패해도 위 리스너들이 이미 등록되어 있으므로 이후 재시도됨)
