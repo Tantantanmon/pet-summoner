@@ -172,6 +172,7 @@
     cursor: pointer;
     color: #8e8e93;
     font-size: 16px;
+    margin-left: auto;
 }
 
 .ps-modal-close:hover {
@@ -920,13 +921,34 @@
     cursor: default;
 }
 
-.ps-overlay.ps-mobile {
-    align-items: center !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 2147483647 !important;
-}
+/* 모바일 환경 전용 강제 레이아웃 수정 */
+@media (max-width: 430px), (pointer: coarse) {
+    .pet-summon-btn {
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 4px !important;
+    }
+    
+    .pet-summon-btn i.ps-btn-icon {
+        font-size: 20px !important;
+    }
 
-.ps-box.ps-mobile {
-    margin: auto !important;
-    max-height: 80vh !important;
+    .ps-overlay, .ps-overlay.ps-mobile {
+        z-index: 2147483647 !important;
+        position: fixed !important;
+        inset: 0 !important;
+    }
+
+    .ps-overlay.ps-mobile {
+        align-items: flex-end !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .ps-box.ps-mobile {
+        width: 100vw !important;
+        padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+        max-height: 70vh !important;
+        margin: 0 !important;
+        border-radius: 22px 22px 0 0 !important;
+    }
 }
