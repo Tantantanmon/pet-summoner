@@ -919,3 +919,14 @@
     opacity: 0.6;
     cursor: default;
 }
+
+.ps-overlay.ps-mobile {
+    align-items: center !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 2147483647 !important;
+}
+
+.ps-box.ps-mobile {
+    margin: auto !important;
+    max-height: 80vh !important;
+}
