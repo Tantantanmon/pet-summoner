@@ -1309,42 +1309,72 @@ SlashCommandParser.addCommandObject(SlashCommand.fromProps({
 
 // ---------- 초기화 ----------
 
-jQuery(async () => {
-    const context = SillyTavern.getContext();
-
-    injectButtons();
-    injectMenuItem();
-    updateExtensionPrompt();
-
-    // 모바일 등 일부 환경에서 입력창/마법봉 메뉴 DOM이 늦게 생성될 수 있어 한 번 더 재시도한다.
-    setTimeout(() => {
+function safeInjectAll() {
+    try {
         injectButtons();
+    } catch (error) {
+        console.error('[PetSummoner] injectButtons 실패:', error);
+    }
+    try {
         injectMenuItem();
-    }, 2000);
+    } catch (error) {
+        console.error('[PetSummoner] injectMenuItem 실패:', error);
+    }
+}
 
-    // 마법봉 버튼을 누를 때도 메뉴 항목이 없으면 다시 넣어본다 (지연 생성 대비).
-    $(document).on('click', '#extensionsMenuButton', () => {
-        setTimeout(() => injectMenuItem(), 50);
-    });
+function boot(attemptsLeft = 20) {
+    let context;
+    try {
+        context = SillyTavern.getContext();
+        if (!context || !context.eventSource || !context.event_types) {
+            throw new Error('context가 아직 준비되지 않음');
+        }
+    } catch (error) {
+        if (attemptsLeft > 0) {
+            setTimeout(() => boot(attemptsLeft - 1), 500);
+        } else {
+            console.error('[PetSummoner] SillyTavern 컨텍스트를 끝내 가져오지 못했습니다:', error);
+        }
+        return;
+    }
 
-    // 새로고침 직후에는 캐릭터/펫 데이터가 아직 다 준비되지 않았을 수 있어
-    // 앱이 완전히 준비된 뒤 한 번 더 동기화한다 (활성 펫이 풀려 보이는 문제 보정).
+    // 이벤트 리스너를 먼저 등록한다 — 아래 초기 삽입이 어떤 이유로든 실패하더라도,
+    // APP_READY/CHAT_CHANGED 시점에 다시 시도될 수 있도록 하기 위함이다.
     context.eventSource.on(context.event_types.APP_READY, () => {
-        injectButtons();
-        injectMenuItem();
-        updateExtensionPrompt();
-        updateButtonUI();
+        safeInjectAll();
+        try { updateExtensionPrompt(); } catch (error) { console.error('[PetSummoner] updateExtensionPrompt 실패:', error); }
+        try { updateButtonUI(); } catch (error) { console.error('[PetSummoner] updateButtonUI 실패:', error); }
     });
 
     context.eventSource.on(context.event_types.CHAT_CHANGED, () => {
-        injectButtons();
-        injectMenuItem();
-        updateExtensionPrompt();
-        updateButtonUI();
+        safeInjectAll();
+        try { updateExtensionPrompt(); } catch (error) { console.error('[PetSummoner] updateExtensionPrompt 실패:', error); }
+        try { updateButtonUI(); } catch (error) { console.error('[PetSummoner] updateButtonUI 실패:', error); }
     });
 
     context.eventSource.on(context.event_types.GENERATION_ENDED, resetOneShotIfNeeded);
     context.eventSource.on(context.event_types.GENERATION_STOPPED, resetOneShotIfNeeded);
 
+    $(document).on('click', '#extensionsMenuButton', () => {
+        setTimeout(() => {
+            try { injectMenuItem(); } catch (error) { console.error('[PetSummoner] injectMenuItem 실패:', error); }
+        }, 50);
+    });
+
+    // 초기 삽입 시도 (실패해도 위 리스너들이 이미 등록되어 있으므로 이후 재시도됨)
+    safeInjectAll();
+    try {
+        updateExtensionPrompt();
+    } catch (error) {
+        console.error('[PetSummoner] updateExtensionPrompt 실패:', error);
+    }
+
+    // 일부 환경에서 입력창/마법봉 메뉴 DOM이 늦게 생성될 수 있어 한 번 더 재시도한다.
+    setTimeout(safeInjectAll, 2000);
+
     console.log('[PetSummoner] 확장이 로드되었습니다.');
+}
+
+jQuery(() => {
+    boot();
 });
