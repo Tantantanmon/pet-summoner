@@ -952,3 +952,11 @@
     opacity: 0.6;
     cursor: default;
 }
+
+.ps-home-note {
+    font-size: 11px;
+    color: #8e8e93;
+    line-height: 1.5;
+    padding: 4px 2px 10px;
+    margin: 0;
+}
