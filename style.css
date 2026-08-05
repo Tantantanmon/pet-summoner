@@ -834,3 +834,87 @@
     opacity: 0.6;
     cursor: default;
 }
+
+/* 무지개다리 - 대화(채팅) 섹션 */
+.ps-rainbow-chat-section {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.ps-rainbow-chat-log {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    margin: 6px 0 8px;
+}
+
+.ps-rainbow-chat-bubble {
+    font-size: 11px;
+    padding: 7px 10px;
+    border-radius: 12px;
+    line-height: 1.5;
+    max-width: 85%;
+    word-break: break-word;
+}
+
+.ps-rainbow-chat-user {
+    align-self: flex-end;
+    background: #0A84FF;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+
+.ps-rainbow-chat-pet {
+    align-self: flex-start;
+    background: #FFFDF9;
+    border: 1px solid #F0DFC8;
+    color: #5C4530;
+    border-bottom-left-radius: 4px;
+}
+
+.ps-rainbow-chat-typing {
+    opacity: 0.6;
+}
+
+.ps-rainbow-chat-input-row {
+    display: flex;
+    gap: 6px;
+}
+
+.ps-rainbow-chat-input {
+    flex: 1;
+    box-sizing: border-box;
+    background: #FFFDF9;
+    border: 1px solid #F0DFC8;
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 11px;
+    color: #1c1c1e;
+}
+
+.ps-rainbow-chat-input:focus {
+    outline: none;
+    border-color: #E76F51;
+}
+
+.ps-rainbow-chat-send {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F4A261, #E76F51);
+    border: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.ps-rainbow-chat-send:disabled {
+    opacity: 0.6;
+    cursor: default;
+}

@@ -1,4 +1,4 @@
-// 펫 소환기 (Pet Summoner) v7 - SillyTavern extension
+// 천사에게 (Pet Summoner) v7 - SillyTavern extension
 //
 // v7 변경점:
 // - 메인 패널이 "홈 메뉴(강아지/고양이/태그/무지개다리) -> 목록 -> 상세" 내비게이션 구조로 전환
@@ -293,7 +293,7 @@ function updateButtonUI() {
         $btn.attr('title', `${(pet.name || '').trim() || speciesLabel(pet.species)} · 클릭해서 반응 방식 선택`);
     } else {
         $icon.addClass('fa-paw');
-        $btn.attr('title', '마법봉 메뉴의 "펫 소환기"에서 이 캐릭터에 쓸 반려동물을 먼저 선택하세요');
+        $btn.attr('title', '마법봉 메뉴의 "천사에게"에서 이 캐릭터에 쓸 반려동물을 먼저 선택하세요');
     }
 
     const armed = !!((settings.selectedTags && settings.selectedTags.length) || (settings.customNote || '').trim());
@@ -308,7 +308,7 @@ function clearArmed() {
     updateExtensionPrompt();
     updateButtonUI();
     context.saveSettingsDebounced();
-    toastr.info('적용이 취소되었습니다.', '펫 소환기');
+    toastr.info('적용이 취소되었습니다.', '천사에게');
 }
 
 function injectButtons() {
@@ -348,7 +348,7 @@ function openTagPopup() {
     const activeId = getActivePetId();
 
     if (!activeId) {
-        toastr.warning('마법봉 메뉴의 "펫 소환기"에서 이 캐릭터에 쓸 반려동물을 먼저 선택해주세요.', '펫 소환기');
+        toastr.warning('마법봉 메뉴의 "천사에게"에서 이 캐릭터에 쓸 반려동물을 먼저 선택해주세요.', '천사에게');
         return;
     }
     if (document.getElementById('ps_tag_overlay')) return;
@@ -417,7 +417,7 @@ function openTagPopup() {
         updateButtonUI();
         context.saveSettingsDebounced();
         if (settings.selectedTags.length || settings.customNote.trim()) {
-            toastr.info('다음 응답에 반영됩니다.', '펫 소환기');
+            toastr.info('다음 응답에 반영됩니다.', '천사에게');
         }
         closeTagPopup();
     });
@@ -430,7 +430,7 @@ function injectMenuItem() {
 
     const $item = $(
         '<div id="pet_summoner_menu_item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">' +
-        '<i class="fa-solid fa-paw"></i><span>펫 소환기</span></div>',
+        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>',
     );
     $item.on('click', openMainPanel);
 
@@ -495,14 +495,14 @@ function popScreen() {
 
 function updateModalHeader(screen) {
     const titles = {
-        home: '펫 소환기',
+        home: '천사에게',
         dogs: '강아지',
         cats: '고양이',
         tags: '태그',
         'rainbow-pick': '무지개다리',
         'rainbow-diary': '무지개다리',
     };
-    $('#ps_main_title').text(titles[screen] || '펫 소환기');
+    $('#ps_main_title').text(titles[screen] || '천사에게');
     $('#ps_main_back').toggle(screen !== 'home');
 }
 
@@ -527,7 +527,7 @@ async function openMainPanel() {
         <div class="ps-modal-header">
             <i class="fa-solid fa-chevron-left ps-modal-back" id="ps_main_back" style="display:none"></i>
             <div class="ps-modal-header-icon"><i class="fa-solid fa-paw"></i></div>
-            <span class="ps-modal-title" id="ps_main_title">펫 소환기</span>
+            <span class="ps-modal-title" id="ps_main_title">천사에게</span>
             <i class="fa-solid fa-xmark ps-modal-close" id="ps_main_close"></i>
         </div>
         ${mobile ? '<div class="ps-sheet-handle"></div>' : ''}
@@ -635,11 +635,22 @@ function homeScreenHtml() {
     `;
 }
 
-function tagListHtml(petId, field, items) {
-    const pills = (items || []).map((t) => (
+function tagPillsHtml(petId, field, items) {
+    return (items || []).map((t) => (
         `<span class="petsum-pill ps-pet-tag-pill" data-pet-id="${petId}" data-field="${field}" data-tag="${escapeAttr(t)}">${escapeHtml(t)} <i class="fa-solid fa-xmark ps-pet-tag-remove"></i></span>`
     )).join('');
-    return `<div class="ps-pill-row">${pills}</div><input type="text" class="text_pole ps-pet-tag-input" data-pet-id="${petId}" data-field="${field}" placeholder="+ 입력 후 Enter" />`;
+}
+
+function tagListHtml(petId, field, items) {
+    return `<div class="ps-pill-row" data-pet-id="${petId}" data-field="${field}">${tagPillsHtml(petId, field, items)}</div><input type="text" class="text_pole ps-pet-tag-input" data-pet-id="${petId}" data-field="${field}" placeholder="+ 입력 후 Enter" />`;
+}
+
+function refreshPetTagPills(petId, field) {
+    const settings = getSettings();
+    const pet = settings.pets[petId];
+    if (!pet) return;
+    const $row = $(`.ps-pill-row[data-pet-id="${petId}"][data-field="${field}"]`);
+    if ($row.length) $row.html(tagPillsHtml(petId, field, pet[field]));
 }
 
 function petCardHtml(pet, activeId) {
@@ -755,6 +766,13 @@ function rainbowPickScreenHtml() {
     }).join('');
 }
 
+let rainbowChatLog = [];
+
+function rainbowChatBubbleHtml(msg) {
+    const cls = msg.role === 'user' ? 'ps-rainbow-chat-user' : 'ps-rainbow-chat-pet';
+    return `<div class="ps-rainbow-chat-bubble ${cls}">${escapeHtml(msg.text)}</div>`;
+}
+
 function rainbowDiaryScreenHtml(pet) {
     const label = escapeHtml((pet.name || '').trim() || speciesLabel(pet.species));
     return `
@@ -763,7 +781,7 @@ function rainbowDiaryScreenHtml(pet) {
             <p class="ps-rainbow-title">${label}의 오늘</p>
 
             <div class="ps-rainbow-profile-row">
-                <label class="ps-rainbow-profile-label">일기 생성용 프로필</label>
+                <label class="ps-rainbow-profile-label">일기 · 대화 생성용 프로필</label>
                 <select id="ps_rainbow_profile_select" class="ps-rainbow-select">
                     <option value="">메인 API 그대로 사용</option>
                 </select>
@@ -774,6 +792,15 @@ function rainbowDiaryScreenHtml(pet) {
             <button id="ps_rainbow_generate_btn" class="ps-rainbow-btn" type="button" data-pet-id="${pet.id}">
                 <i class="fa-solid fa-feather"></i> 새 일기 쓰기
             </button>
+
+            <div class="ps-rainbow-chat-section">
+                <label class="ps-rainbow-profile-label">하고 싶은 말 남기기</label>
+                <div id="ps_rainbow_chat_log" class="ps-rainbow-chat-log">${rainbowChatLog.map(rainbowChatBubbleHtml).join('')}</div>
+                <div class="ps-rainbow-chat-input-row">
+                    <input type="text" id="ps_rainbow_chat_input" class="ps-rainbow-chat-input" placeholder="보고싶어, 잘 지내?" />
+                    <button id="ps_rainbow_chat_send" class="ps-rainbow-chat-send" type="button" data-pet-id="${pet.id}"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -969,6 +996,87 @@ async function generateRainbowDiary(petId) {
     }
 }
 
+function scrollRainbowChatToBottom() {
+    const el = document.getElementById('ps_rainbow_chat_log');
+    if (el) el.scrollTop = el.scrollHeight;
+}
+
+function buildRainbowChatPrompt(pet, userMessage) {
+    const name = (pet.name || '').trim() || speciesLabel(pet.species);
+    const facts = [];
+    if ((pet.likes || []).length) facts.push(`좋아하는 것: ${pet.likes.join(', ')}`);
+    if ((pet.habits || []).length) facts.push(`습관: ${pet.habits.join(', ')}`);
+
+    return [
+        '[중요 — 캐릭터 카드나 이전 대화의 출력 형식·번역 스키마·태그를 절대 따르지 말고, 순수 한국어 문장만 출력하라]',
+        `당신은 무지개다리 너머의 반려동물 "${name}"입니다.`,
+        facts.length ? `[참고용, 그대로 나열하지 말 것] ${facts.join(' / ')}` : '',
+        `주인이 방금 이렇게 말했습니다: "${userMessage}"`,
+        '이 말에 자연스럽게, 그 아이다운 말투로 아주 짧게(1~2문장) 대답하라.',
+        '밝고 다정하고 장난스럽게. 사람처럼 유식하게 말하지 말고, 순수하고 사랑스러운 반려동물 말투로.',
+        '슬프거나 무겁게 답하지 말 것. 출력은 오직 대답 문장만, 따옴표나 태그 없이.',
+    ].filter(Boolean).join('\n');
+}
+
+async function sendRainbowChat(petId) {
+    const context = SillyTavern.getContext();
+    const settings = getSettings();
+    const pet = settings.pets[petId];
+    const $input = $('#ps_rainbow_chat_input');
+    const text = ($input.val() || '').trim();
+    if (!text || !pet) return;
+
+    rainbowChatLog.push({ role: 'user', text });
+    $('#ps_rainbow_chat_log').append(rainbowChatBubbleHtml({ role: 'user', text }));
+    $input.val('').prop('disabled', true);
+    $('#ps_rainbow_chat_send').prop('disabled', true);
+
+    const $typing = $('<div class="ps-rainbow-chat-bubble ps-rainbow-chat-pet ps-rainbow-chat-typing">...</div>');
+    $('#ps_rainbow_chat_log').append($typing);
+    scrollRainbowChatToBottom();
+
+    const profileName = ($('#ps_rainbow_profile_select').val() || '').trim();
+    let originalProfile = '';
+    let switched = false;
+
+    try {
+        if (profileName) {
+            try {
+                const cur = await context.executeSlashCommandsWithOptions('/profile');
+                originalProfile = (cur?.pipe || '').trim();
+            } catch (error) {
+                console.warn('[PetSummoner] 현재 프로필 확인 실패:', error);
+            }
+            if (originalProfile && originalProfile !== profileName) {
+                await context.executeSlashCommandsWithOptions(`/profile ${profileName}`);
+                switched = true;
+            }
+        }
+
+        const quietPrompt = buildRainbowChatPrompt(pet, text);
+        const reply = await context.generateQuietPrompt({ quietPrompt });
+        const cleaned = cleanDiaryText(reply) || '...';
+        rainbowChatLog.push({ role: 'pet', text: cleaned });
+        $typing.removeClass('ps-rainbow-chat-typing').text(cleaned);
+    } catch (error) {
+        console.error('[PetSummoner] 무지개다리 대화 실패:', error);
+        const fallback = '...잘 안 들렸나봐. 다시 말해줄래?';
+        rainbowChatLog.push({ role: 'pet', text: fallback });
+        $typing.removeClass('ps-rainbow-chat-typing').text(fallback);
+    } finally {
+        if (switched && originalProfile) {
+            try {
+                await context.executeSlashCommandsWithOptions(`/profile ${originalProfile}`);
+            } catch (error) {
+                console.warn('[PetSummoner] 원래 프로필로 복귀하지 못했습니다:', error);
+            }
+        }
+        $input.prop('disabled', false);
+        $('#ps_rainbow_chat_send').prop('disabled', false);
+        scrollRainbowChatToBottom();
+    }
+}
+
 // ---------- 패널 이벤트 바인딩 ----------
 
 function bindPanelEvents() {
@@ -987,6 +1095,7 @@ function bindPanelEvents() {
     });
     $(document).on(`click${ns}`, '.ps-rainbow-pick-row', function () {
         setRainbowSelectedPetId($(this).data('pet-id'));
+        rainbowChatLog = [];
         pushScreen('rainbow-diary');
     });
 
@@ -1015,7 +1124,8 @@ function bindPanelEvents() {
         if (id === getActivePetId()) updateButtonUI();
     });
 
-    // 태그형 필드 (좋아하는것/싫어하는것/습관·루틴)
+    // 태그형 필드 (좋아하는것/싫어하는것/습관·루틴) - 화면 전체를 다시 그리지 않고
+    // 해당 pill-row만 갱신한다 (아코디언이 접히거나 스크롤이 튀는 것을 방지).
     $(document).on(`keydown${ns}`, '.ps-pet-tag-input', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -1026,7 +1136,8 @@ function bindPanelEvents() {
         settings.pets[id][field] = settings.pets[id][field] || [];
         settings.pets[id][field].push(val);
         context.saveSettingsDebounced();
-        renderScreen(currentTopScreen());
+        refreshPetTagPills(id, field);
+        $(this).val('');
     });
     $(document).on(`click${ns}`, '.ps-pet-tag-remove', function () {
         const $pill = $(this).closest('.ps-pet-tag-pill');
@@ -1036,7 +1147,7 @@ function bindPanelEvents() {
         if (!settings.pets[id]) return;
         settings.pets[id][field] = (settings.pets[id][field] || []).filter((t) => t !== tag);
         context.saveSettingsDebounced();
-        renderScreen(currentTopScreen());
+        refreshPetTagPills(id, field);
     });
 
     // 활성 펫 지정 / 삭제
@@ -1123,6 +1234,15 @@ function bindPanelEvents() {
     $(document).on(`click${ns}`, '#ps_rainbow_generate_btn', function () {
         generateRainbowDiary($(this).data('pet-id'));
     });
+    $(document).on(`click${ns}`, '#ps_rainbow_chat_send', function () {
+        sendRainbowChat($(this).data('pet-id'));
+    });
+    $(document).on(`keydown${ns}`, '#ps_rainbow_chat_input', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendRainbowChat(getRainbowSelectedPetId());
+        }
+    });
 
     // 1회성 토글 / 초기화
     $(document).on(`change${ns}`, '#ps_oneshot', function () {
@@ -1138,7 +1258,7 @@ function bindPanelEvents() {
         updateExtensionPrompt();
         updateButtonUI();
         renderScreen('home');
-        toastr.info('초기화되었습니다.', '펫 소환기');
+        toastr.info('초기화되었습니다.', '천사에게');
     });
 }
 
