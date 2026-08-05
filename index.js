@@ -353,76 +353,83 @@ function openTagPopup() {
         toastr.warning('마법봉 메뉴의 "천사에게"에서 이 캐릭터에 쓸 반려동물을 먼저 선택해주세요.', '천사에게');
         return;
     }
-    if (document.getElementById('ps_tag_overlay')) return;
+    const stale = document.getElementById('ps_tag_overlay');
+    if (stale) stale.remove();
 
-    const mobile = isMobile();
-    const pet = settings.pets[activeId];
-    const name = (pet.name || '').trim() || speciesLabel(pet.species);
-    const icon = pet.species === 'cat' ? 'fa-cat' : 'fa-dog';
-    const selected = new Set(settings.selectedTags || []);
+    try {
+        const mobile = isMobile();
+        const pet = settings.pets[activeId];
+        const name = (pet.name || '').trim() || speciesLabel(pet.species);
+        const icon = pet.species === 'cat' ? 'fa-cat' : 'fa-dog';
+        const selected = new Set(settings.selectedTags || []);
 
-    function renderGroup(list) {
-        return list.map((tag) => {
-            const cls = selected.has(tag) ? 'petsum-pill active' : 'petsum-pill';
-            return `<span class="${cls}" data-tag="${escapeAttr(tag)}">${escapeHtml(tag)}</span>`;
-        }).join('');
-    }
-
-    const overlay = document.createElement('div');
-    overlay.id = 'ps_tag_overlay';
-    overlay.className = `ps-overlay ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
-
-    const box = document.createElement('div');
-    box.id = 'ps_tag_box';
-    box.className = `ps-box ${mobile ? 'ps-mobile' : 'ps-desktop-sm'}`;
-    box.innerHTML = `
-        <div class="ps-modal-body">
-            ${mobile ? '<div class="ps-sheet-handle"></div>' : ''}
-            <div class="ps-tagpopup-header"><i class="fa-solid ${icon}"></i>${escapeHtml(name)}이(가) 지금 어떻게 반응할까요</div>
-            <p class="ps-tagpopup-label">상호작용 방식</p>
-            <div class="ps-pill-row">${renderGroup(settings.tags.interaction)}</div>
-            <p class="ps-tagpopup-label">함께하는 루틴</p>
-            <div class="ps-pill-row">${renderGroup(settings.tags.routine)}</div>
-            <p class="ps-tagpopup-hint">루틴 태그는 지금 장면과 맞을 때만 선택하세요 (예: 실내 대화 중엔 산책하기보다 곁에 있어주기).</p>
-            <p class="ps-tagpopup-label">직접 입력 (선택)</p>
-            <textarea id="ps_tag_custom" class="ps-tagpopup-input" rows="1" placeholder="예: 산책시킨다"></textarea>
-            <p class="ps-tagpopup-hint">태그·문장은 그대로 옮겨지지 않고, 참고해서 자연스럽게 반영돼요.</p>
-        </div>
-        <div class="ps-modal-footer">
-            <button type="button" class="ps-btn-ghost" id="ps_tag_cancel">취소</button>
-            <button type="button" class="ps-btn-solid" id="ps_tag_apply">적용</button>
-        </div>
-    `;
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-
-    box.querySelector('#ps_tag_custom').value = settings.customNote || '';
-
-    box.querySelectorAll('.petsum-pill').forEach((el) => {
-        el.addEventListener('click', () => {
-            const tag = el.getAttribute('data-tag');
-            el.classList.toggle('active');
-            if (selected.has(tag)) selected.delete(tag); else selected.add(tag);
-        });
-    });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeTagPopup();
-    });
-    box.querySelector('#ps_tag_cancel').addEventListener('click', closeTagPopup);
-    box.querySelector('#ps_tag_apply').addEventListener('click', () => {
-        const context = SillyTavern.getContext();
-        settings.selectedTags = Array.from(selected);
-        settings.customNote = box.querySelector('#ps_tag_custom').value;
-        updateExtensionPrompt();
-        updateButtonUI();
-        context.saveSettingsDebounced();
-        if (settings.selectedTags.length || settings.customNote.trim()) {
-            toastr.info('다음 응답에 반영됩니다.', '천사에게');
+        function renderGroup(list) {
+            return list.map((tag) => {
+                const cls = selected.has(tag) ? 'petsum-pill active' : 'petsum-pill';
+                return `<span class="${cls}" data-tag="${escapeAttr(tag)}">${escapeHtml(tag)}</span>`;
+            }).join('');
         }
-        closeTagPopup();
-    });
+
+        const overlay = document.createElement('div');
+        overlay.id = 'ps_tag_overlay';
+        overlay.className = `ps-overlay ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
+
+        const box = document.createElement('div');
+        box.id = 'ps_tag_box';
+        box.className = `ps-box ${mobile ? 'ps-mobile' : 'ps-desktop-sm'}`;
+        box.innerHTML = `
+            <div class="ps-modal-body">
+                ${mobile ? '<div class="ps-sheet-handle"></div>' : ''}
+                <div class="ps-tagpopup-header"><i class="fa-solid ${icon}"></i>${escapeHtml(name)}이(가) 지금 어떻게 반응할까요</div>
+                <p class="ps-tagpopup-label">상호작용 방식</p>
+                <div class="ps-pill-row">${renderGroup(settings.tags.interaction)}</div>
+                <p class="ps-tagpopup-label">함께하는 루틴</p>
+                <div class="ps-pill-row">${renderGroup(settings.tags.routine)}</div>
+                <p class="ps-tagpopup-hint">루틴 태그는 지금 장면과 맞을 때만 선택하세요 (예: 실내 대화 중엔 산책하기보다 곁에 있어주기).</p>
+                <p class="ps-tagpopup-label">직접 입력 (선택)</p>
+                <textarea id="ps_tag_custom" class="ps-tagpopup-input" rows="1" placeholder="예: 산책시킨다"></textarea>
+                <p class="ps-tagpopup-hint">태그·문장은 그대로 옮겨지지 않고, 참고해서 자연스럽게 반영돼요.</p>
+            </div>
+            <div class="ps-modal-footer">
+                <button type="button" class="ps-btn-ghost" id="ps_tag_cancel">취소</button>
+                <button type="button" class="ps-btn-solid" id="ps_tag_apply">적용</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        box.querySelector('#ps_tag_custom').value = settings.customNote || '';
+
+        box.querySelectorAll('.petsum-pill').forEach((el) => {
+            el.addEventListener('click', () => {
+                const tag = el.getAttribute('data-tag');
+                el.classList.toggle('active');
+                if (selected.has(tag)) selected.delete(tag); else selected.add(tag);
+            });
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeTagPopup();
+        });
+        box.querySelector('#ps_tag_cancel').addEventListener('click', closeTagPopup);
+        box.querySelector('#ps_tag_apply').addEventListener('click', () => {
+            const context = SillyTavern.getContext();
+            settings.selectedTags = Array.from(selected);
+            settings.customNote = box.querySelector('#ps_tag_custom').value;
+            updateExtensionPrompt();
+            updateButtonUI();
+            context.saveSettingsDebounced();
+            if (settings.selectedTags.length || settings.customNote.trim()) {
+                toastr.info('다음 응답에 반영됩니다.', '천사에게');
+            }
+            closeTagPopup();
+        });
+    } catch (error) {
+        console.error('[PetSummoner] 태그 팝업을 여는 데 실패했습니다:', error);
+        document.getElementById('ps_tag_overlay')?.remove();
+        toastr.error('태그 창을 여는 데 실패했어요. 콘솔(F12)을 확인해주세요.', '천사에게');
+    }
 }
 
 // ---------- 마법봉 메뉴 항목 ----------
@@ -514,40 +521,52 @@ function closeMainPanel() {
 }
 
 async function openMainPanel() {
-    if (document.getElementById('ps_main_overlay')) return;
+    // 이전에 뭔가 실패해서 오버레이가 남아있는 상태로 걸려있을 수 있으니,
+    // 조용히 무시하지 말고 정리 후 다시 새로 연다.
+    const stale = document.getElementById('ps_main_overlay');
+    if (stale) {
+        unbindPanelEvents();
+        stale.remove();
+    }
 
-    const mobile = isMobile();
+    try {
+        const mobile = isMobile();
 
-    const overlay = document.createElement('div');
-    overlay.id = 'ps_main_overlay';
-    overlay.className = `ps-overlay ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
+        const overlay = document.createElement('div');
+        overlay.id = 'ps_main_overlay';
+        overlay.className = `ps-overlay ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
 
-    const box = document.createElement('div');
-    box.id = 'ps_main_box';
-    box.className = `ps-box ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
-    box.innerHTML = `
-        <div class="ps-modal-header">
-            <i class="fa-solid fa-chevron-left ps-modal-back" id="ps_main_back" style="display:none"></i>
-            <div class="ps-modal-header-icon"><i class="fa-solid fa-paw"></i></div>
-            <span class="ps-modal-title" id="ps_main_title">천사에게</span>
-            <i class="fa-solid fa-xmark ps-modal-close" id="ps_main_close"></i>
-        </div>
-        ${mobile ? '<div class="ps-sheet-handle"></div>' : ''}
-        <div class="ps-modal-body" id="ps_main_body"></div>
-    `;
+        const box = document.createElement('div');
+        box.id = 'ps_main_box';
+        box.className = `ps-box ${mobile ? 'ps-mobile' : 'ps-desktop'}`;
+        box.innerHTML = `
+            <div class="ps-modal-header">
+                <i class="fa-solid fa-chevron-left ps-modal-back" id="ps_main_back" style="display:none"></i>
+                <div class="ps-modal-header-icon"><i class="fa-solid fa-paw"></i></div>
+                <span class="ps-modal-title" id="ps_main_title">천사에게</span>
+                <i class="fa-solid fa-xmark ps-modal-close" id="ps_main_close"></i>
+            </div>
+            ${mobile ? '<div class="ps-sheet-handle"></div>' : ''}
+            <div class="ps-modal-body" id="ps_main_body"></div>
+        `;
 
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeMainPanel();
-    });
-    box.querySelector('#ps_main_close').addEventListener('click', closeMainPanel);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeMainPanel();
+        });
+        box.querySelector('#ps_main_close').addEventListener('click', closeMainPanel);
 
-    bindPanelEvents();
-    box.dataset.screenStack = JSON.stringify(['home']);
-    box.dataset.rainbowPetId = '';
-    renderScreen('home');
+        bindPanelEvents();
+        box.dataset.screenStack = JSON.stringify(['home']);
+        box.dataset.rainbowPetId = '';
+        renderScreen('home');
+    } catch (error) {
+        console.error('[PetSummoner] 메인 패널을 여는 데 실패했습니다:', error);
+        document.getElementById('ps_main_overlay')?.remove();
+        toastr.error('패널을 여는 데 실패했어요. 콘솔(F12)을 확인해주세요.', '천사에게');
+    }
 }
 
 function renderScreen(screen) {
@@ -1296,6 +1315,17 @@ jQuery(async () => {
     injectButtons();
     injectMenuItem();
     updateExtensionPrompt();
+
+    // 모바일 등 일부 환경에서 입력창/마법봉 메뉴 DOM이 늦게 생성될 수 있어 한 번 더 재시도한다.
+    setTimeout(() => {
+        injectButtons();
+        injectMenuItem();
+    }, 2000);
+
+    // 마법봉 버튼을 누를 때도 메뉴 항목이 없으면 다시 넣어본다 (지연 생성 대비).
+    $(document).on('click', '#extensionsMenuButton', () => {
+        setTimeout(() => injectMenuItem(), 50);
+    });
 
     // 새로고침 직후에는 캐릭터/펫 데이터가 아직 다 준비되지 않았을 수 있어
     // 앱이 완전히 준비된 뒤 한 번 더 동기화한다 (활성 펫이 풀려 보이는 문제 보정).
