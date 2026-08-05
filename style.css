@@ -1,28 +1,60 @@
-/* 입력창 옆 단일 소환 버튼 */
+/* 입력창 옆 단일 소환 버튼 (25px) */
 .pet-summon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 25px;
+    height: 25px;
     border-radius: 50%;
     cursor: pointer;
-    opacity: 0.65;
-    border: 1px solid transparent;
-    transition: all 0.15s ease;
-    margin: 0 4px;
+    color: #8e8e93;
+    position: relative;
+    margin: 0 3px;
+    transition: color 0.15s ease;
 }
 
 .pet-summon-btn:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.08);
+    color: #5a5a56;
 }
 
-.pet-summon-btn.armed {
-    opacity: 1;
-    background: rgba(216, 90, 48, 0.18);
-    border-color: rgba(216, 90, 48, 0.6);
-    box-shadow: 0 0 6px rgba(216, 90, 48, 0.4);
+.pet-summon-btn i.ps-btn-icon {
+    font-size: 15px;
+}
+
+.pet-summon-btn.armed i.ps-btn-icon {
+    color: #0A84FF;
+    display: inline-block;
+    animation: ps-walk 0.6s ease-in-out infinite;
+}
+
+@keyframes ps-walk {
+    0%, 100% { transform: translateY(0) rotate(-4deg); }
+    50% { transform: translateY(-1px) rotate(4deg); }
+}
+
+#pet_summon_active {
+    position: relative !important;
+}
+
+#pet_summon_active .ps-cancel-badge {
+    display: none !important;
+    position: absolute !important;
+    top: -2px !important;
+    right: -2px !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: 8px !important;
+    height: 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: #FF3B30 !important;
+    border: 1.5px solid #ffffff !important;
+    cursor: pointer;
+}
+
+#pet_summon_active.armed .ps-cancel-badge {
+    display: block !important;
 }
 
 #pet_summoner_menu_item i {
@@ -30,292 +62,775 @@
     text-align: center;
 }
 
-/* ===== 메인 관리 패널 ===== */
-.pet-summoner-panel {
-    color: #2c2c2a;
-    font-size: 14px;
-    max-width: 100%;
+/* ===== 커스텀 모달 / 바텀시트 공용 껍데기 (완전 화이트) ===== */
+.ps-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    background: transparent;
 }
 
-.pet-summoner-panel .ps-card {
+.ps-overlay.ps-mobile {
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.ps-overlay.ps-desktop {
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 20px 0;
+}
+
+.ps-box {
+    position: relative;
     background: #ffffff;
-    border: 1px solid #ececea;
-    border-radius: 18px;
-    margin-bottom: 14px;
-    overflow: hidden;
+    color: #1c1c1e;
+    font-size: 14px;
 }
 
-.pet-summoner-panel .ps-head {
+.ps-box.ps-mobile {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 22px 22px 0 0;
+    overflow-y: auto;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.ps-box.ps-desktop {
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 40px);
+    border-radius: 18px;
+    overflow-y: auto;
+    margin: auto;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+}
+
+.ps-box.ps-desktop-sm {
+    width: 300px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 40px);
+    border-radius: 18px;
+    overflow-y: auto;
+    margin: auto;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+}
+
+.ps-sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: #e5e5ea;
+    border-radius: 99px;
+    margin: 10px auto 6px;
+}
+
+.ps-modal-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    position: sticky;
+    top: 0;
+    background: #ffffff;
+    z-index: 1;
+}
+
+.ps-modal-back {
     cursor: pointer;
+    color: #0A84FF;
+    font-size: 15px;
+    margin-right: 2px;
 }
 
-.pet-summoner-panel .ps-head-dog {
-    background: #faece7;
-    color: #712b13;
+.ps-modal-header-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(10, 132, 255, 0.1);
+    color: #0A84FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
 }
 
-.pet-summoner-panel .ps-head-cat {
-    background: #fbeaf0;
-    color: #72243e;
-}
-
-.pet-summoner-panel .ps-head i.fa-dog,
-.pet-summoner-panel .ps-head i.fa-cat {
-    font-size: 18px;
-}
-
-.pet-summoner-panel .ps-head-title {
+.ps-modal-title {
+    font-size: 13px;
     font-weight: 600;
     flex: 1;
 }
 
-.pet-summoner-panel .ps-active-radio {
+.ps-modal-close {
+    cursor: pointer;
+    color: #8e8e93;
+    font-size: 16px;
+}
+
+.ps-modal-close:hover {
+    color: #3a3a3c;
+}
+
+.ps-modal-body {
+    padding: 12px 14px;
+    position: relative;
+    min-height: 80px;
+}
+
+.ps-modal-footer {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    padding: 10px 14px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.ps-btn-ghost {
+    background: #ffffff;
+    border: 1px solid rgba(10, 132, 255, 0.3);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: #0A84FF;
+    cursor: pointer;
+}
+
+.ps-btn-ghost:hover {
+    background: rgba(10, 132, 255, 0.06);
+}
+
+.ps-btn-solid {
+    background: #0A84FF;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 11px;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ps-btn-solid:hover {
+    background: #0870d6;
+}
+
+.ps-btn-reset {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+    background: #ffffff;
+    border: 1px solid rgba(10, 132, 255, 0.3);
+    color: #0A84FF;
+    font-size: 11px;
+    padding: 9px;
+    border-radius: 12px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.ps-btn-reset:hover {
+    background: rgba(10, 132, 255, 0.06);
+}
+
+/* 토글 스위치 */
+.ps-toggle {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.ps-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ps-toggle-track {
+    position: absolute;
+    inset: 0;
+    background: #d1d1d6;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ps-toggle-track::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.ps-toggle input:checked + .ps-toggle-track {
+    background: #0A84FF;
+}
+
+.ps-toggle input:checked + .ps-toggle-track::before {
+    transform: translateX(14px);
+}
+
+.ps-row-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 2px;
+    font-size: 12px;
+    color: #3a3a3c;
+}
+
+/* ===== 홈 메뉴 (강아지/고양이/태그/무지개다리 진입) ===== */
+.pet-summoner-panel .ps-menu-row,
+.ps-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 16px;
+    padding: 12px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.ps-menu-row:hover {
+    border-color: rgba(10, 132, 255, 0.3);
+}
+
+.ps-menu-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(10, 132, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ps-menu-icon i {
+    font-size: 17px;
+    color: #0A84FF;
+}
+
+.ps-menu-icon-warm {
+    background: linear-gradient(135deg, #FFE8CC, #FFD6E8);
+}
+
+.ps-menu-icon-warm i {
+    color: #C7823D;
+}
+
+.ps-menu-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.ps-menu-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0;
+    color: #1c1c1e;
+}
+
+.ps-menu-sub {
+    font-size: 9px;
+    color: #8e8e93;
+    margin: 2px 0 0;
+}
+
+.ps-menu-chevron {
+    font-size: 13px;
+    color: #c7c7cc;
+    flex-shrink: 0;
+}
+
+.ps-menu-row-warm {
+    background: linear-gradient(135deg, #FFF8F0, #FFF0F5);
+    border-color: #F5E6D3;
+}
+
+/* ===== 리스트 화면 + 플로팅 추가 버튼 ===== */
+.ps-list-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 46px;
+}
+
+.ps-empty-hint {
+    font-size: 12px;
+    color: #8e8e93;
+    text-align: center;
+    padding: 24px 0 46px;
+}
+
+.ps-fab {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+}
+
+.ps-fab i {
+    color: #fff;
+    font-size: 15px;
+}
+
+/* ===== 펫 카드 (아코디언) ===== */
+.pet-summoner-panel .ps-card,
+.ps-card {
+    background: #ffffff;
+    border: 1px solid #f0f0f0;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.ps-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    background: rgba(10, 132, 255, 0.06);
+}
+
+.ps-head i.fa-dog,
+.ps-head i.fa-cat {
+    font-size: 15px;
+    color: #0A84FF;
+}
+
+.ps-head-title {
+    font-weight: 600;
+    font-size: 12px;
+    flex: 1;
+    color: #1c1c1e;
+}
+
+.ps-active-radio {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
-    background: rgba(255, 255, 255, 0.7);
-    padding: 3px 9px;
+    font-size: 10px;
+    color: #0A84FF;
+    background: #ffffff;
+    border: 1px solid rgba(10, 132, 255, 0.2);
+    padding: 2px 8px;
     border-radius: 999px;
     cursor: pointer;
 }
 
-.pet-summoner-panel .ps-fields {
-    padding: 14px;
+.ps-pet-delete {
+    color: #b0b0b5;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 2px;
+}
+
+.ps-pet-delete:hover {
+    color: #FF3B30;
+}
+
+.ps-fields {
+    padding: 10px 12px;
     background: #ffffff;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
-.pet-summoner-panel .ps-grid2 {
+.ps-grid2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 8px;
 }
 
-/* 필드를 박스 카드로 명확히 구분 */
-.pet-summoner-panel .ps-field {
-    background: #fafaf8;
-    border: 1px solid #efefeb;
-    border-radius: 12px;
-    padding: 8px 10px;
+.ps-field {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 6px 9px;
 }
 
-.pet-summoner-panel .ps-field label {
+.ps-field label {
     display: block;
-    font-size: 11px;
-    color: #9a9a94;
-    margin-bottom: 4px;
+    font-size: 9px;
+    color: #8e8e93;
+    margin-bottom: 2px;
 }
 
-.pet-summoner-panel textarea,
-.pet-summoner-panel input[type="text"],
-.pet-summoner-panel select {
+.ps-field textarea,
+.ps-field input[type="text"],
+.ps-field select {
     background: transparent;
     border: none;
-    color: #2c2c2a;
+    color: #1c1c1e;
     width: 100%;
     box-sizing: border-box;
     padding: 0;
-    font-size: 13px;
+    font-size: 12px;
 }
 
-.pet-summoner-panel textarea:focus,
-.pet-summoner-panel input[type="text"]:focus,
-.pet-summoner-panel select:focus {
+.ps-field textarea:focus,
+.ps-field input[type="text"]:focus,
+.ps-field select:focus {
     outline: none;
 }
 
-.pet-summoner-panel .ps-field:focus-within {
-    border-color: #d85a30;
+.ps-field:focus-within {
+    border-color: #0A84FF;
 }
 
-.pet-summoner-panel .ps-episode-list {
+/* 펫 카드 안 태그 입력 (좋아하는것/싫어하는것/습관·루틴) */
+.ps-pet-tag-input {
+    width: 130px;
+    box-sizing: border-box;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 7px;
+    padding: 3px 7px;
+    font-size: 10px;
+    height: 22px;
+    margin-top: 5px;
+}
+
+.ps-pet-tag-input:focus {
+    outline: none;
+    border-color: #0A84FF;
+}
+
+/* 민감정보 박스 */
+.ps-sensitive-box {
+    background: rgba(255, 159, 10, 0.06);
+    border: 1px solid rgba(255, 159, 10, 0.25);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.ps-sensitive-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    color: #B25E00;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 6px;
+}
+
+.ps-sensitive-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid rgba(255, 159, 10, 0.3);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: #1c1c1e;
+    resize: vertical;
+}
+
+.ps-sensitive-input:focus {
+    outline: none;
+    border-color: #FF9F0A;
+}
+
+.ps-episode-list {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-bottom: 6px;
 }
 
-.pet-summoner-panel .ps-episode-row {
+.ps-episode-row {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    background: #fafaf8;
-    border: 1px solid #efefeb;
+    gap: 6px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
     border-radius: 10px;
-    padding: 8px 10px;
+    padding: 6px 9px;
 }
 
-.pet-summoner-panel .ps-episode-icon {
-    color: #d85a30;
-    margin-top: 8px;
-    font-size: 12px;
+.ps-episode-icon {
+    color: #0A84FF;
+    margin-top: 6px;
+    font-size: 11px;
 }
 
-.pet-summoner-panel .ps-episode-text {
+.ps-episode-text {
     flex: 1;
     background: transparent;
     border: none;
-    font-size: 13px;
-    padding: 6px 0;
+    font-size: 12px;
+    padding: 5px 0;
     resize: vertical;
 }
 
-.pet-summoner-panel .ps-episode-text:focus {
+.ps-episode-text:focus {
     outline: none;
 }
 
-.pet-summoner-panel .ps-episode-remove {
+.ps-episode-remove {
     cursor: pointer;
-    margin-top: 8px;
-    color: #b3b3ad;
-    font-size: 13px;
-}
-
-.pet-summoner-panel .ps-episode-remove:hover {
-    color: #e24b4a;
-}
-
-.pet-summoner-panel .ps-add-btn {
-    background: #fff;
-    border: 1px dashed #cfcfca;
-    border-radius: 999px;
-    color: #8a8a86;
+    margin-top: 6px;
+    color: #b0b0b5;
     font-size: 12px;
-    padding: 5px 12px;
+}
+
+.ps-episode-remove:hover {
+    color: #FF3B30;
+}
+
+.ps-add-btn {
+    background: #fff;
+    border: 1px dashed #d1d1d6;
+    border-radius: 999px;
+    color: #8e8e93;
+    font-size: 11px;
+    padding: 4px 11px;
     cursor: pointer;
 }
 
-.pet-summoner-panel .ps-add-btn:hover {
-    border-color: #d85a30;
-    color: #d85a30;
+.ps-add-btn:hover {
+    border-color: #0A84FF;
+    color: #0A84FF;
 }
 
-.pet-summoner-panel .ps-tagmanager {
-    background: #ffffff;
-    border: 1px solid #ececea;
-    border-radius: 18px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
+/* ===== 태그 관리 화면 ===== */
+.ps-subtitle {
+    font-size: 10px;
+    color: #8e8e93;
+    margin: 4px 0 6px;
 }
 
-.pet-summoner-panel .ps-section-title {
-    font-weight: 600;
-    margin: 0 0 8px;
-    color: #2c2c2a;
-}
-
-.pet-summoner-panel .ps-subtitle {
-    font-size: 11px;
-    color: #9a9a94;
-    margin: 10px 0 6px;
-}
-
-.pet-summoner-panel .ps-tag-add-row {
-    display: flex;
-    gap: 6px;
-    margin-top: 8px;
-}
-
-.pet-summoner-panel .ps-tag-add-row .text_pole {
-    background: #fafaf8;
-    border: 1px solid #efefeb;
+.ps-tag-add-input {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
     border-radius: 999px;
     padding: 6px 12px;
-    flex: 1;
+    margin-top: 8px;
+    font-size: 11px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.pet-summoner-panel .ps-checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #5a5a56;
-    cursor: pointer;
+.ps-tag-add-input:focus {
+    border-color: #0A84FF;
+    outline: none;
 }
 
 /* 알약형 태그 - 공용 */
 .ps-pill-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
 }
 
 .petsum-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     background: #ffffff;
-    color: #712b13;
-    font-size: 12px;
-    padding: 6px 12px;
+    color: #0A84FF;
+    font-size: 11px;
+    padding: 5px 11px;
     border-radius: 999px;
     cursor: pointer;
-    border: 1px solid rgba(216, 90, 48, 0.3);
+    border: 1px solid rgba(10, 132, 255, 0.3);
     user-select: none;
 }
 
 .petsum-pill:hover {
-    border-color: #d85a30;
+    border-color: #0A84FF;
 }
 
 .petsum-pill.active {
-    background: #d85a30;
+    background: #0A84FF;
     color: #ffffff;
-    border-color: #d85a30;
+    border-color: #0A84FF;
 }
 
-.petsum-pill-mgr {
+.petsum-pill-mgr,
+.ps-pet-tag-pill {
     cursor: default;
-    background: #fafaf8;
-    color: #5a5a56;
-    border-color: #efefeb;
+    background: #fafafa;
+    color: #3a3a3c;
+    border-color: #f0f0f0;
+    font-size: 10px;
+    padding: 4px 9px;
 }
 
-.petsum-pill-mgr .ps-tag-remove {
+.petsum-pill-mgr .ps-tag-remove,
+.ps-pet-tag-pill .ps-pet-tag-remove {
     cursor: pointer;
     opacity: 0.6;
+    font-size: 9px;
 }
 
-.petsum-pill-mgr .ps-tag-remove:hover {
+.petsum-pill-mgr .ps-tag-remove:hover,
+.ps-pet-tag-pill .ps-pet-tag-remove:hover {
     opacity: 1;
-    color: #e24b4a;
+    color: #FF3B30;
 }
 
 /* 태그 선택 팝업 (입력창 버튼 클릭 시) */
-.pet-summoner-tagpopup {
-    padding: 4px 2px;
-}
-
-.pet-summoner-tagpopup .ps-tagpopup-header {
+.ps-tagpopup-header {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: #2c2c2a;
+    color: #1c1c1e;
 }
 
-.pet-summoner-tagpopup .ps-tagpopup-header i {
-    color: #d85a30;
-    font-size: 16px;
+.ps-tagpopup-header i {
+    color: #0A84FF;
+    font-size: 14px;
 }
 
-.pet-summoner-tagpopup .ps-tagpopup-label {
-    font-size: 11px;
-    color: #9a9a94;
+.ps-tagpopup-label {
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    color: #0A84FF;
+    font-weight: 600;
+    text-transform: uppercase;
     margin: 10px 0 6px;
 }
 
-.pet-summoner-tagpopup .ps-tagpopup-hint {
+.ps-tagpopup-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 7px 10px;
     font-size: 11px;
-    color: #b3b3ad;
-    margin-top: 12px;
+    color: #1c1c1e;
+    resize: none;
+    margin-bottom: 4px;
+}
+
+.ps-tagpopup-input:focus {
+    outline: none;
+    border-color: #0A84FF;
+}
+
+.ps-tagpopup-hint {
+    font-size: 10px;
+    color: #b0b0b5;
+    margin: 6px 0 0;
+}
+
+/* ===== 무지개다리 화면 (따뜻한 톤) ===== */
+.ps-rainbow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0 12px;
+}
+
+.ps-rainbow-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FFE8CC, #FFD6E8, #D6E8FF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ps-rainbow-icon i {
+    font-size: 20px;
+    color: #C7823D;
+}
+
+.ps-rainbow-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6B4423;
+    margin: 0;
+}
+
+.ps-rainbow-profile-row {
+    width: 100%;
+}
+
+.ps-rainbow-profile-label {
+    display: block;
+    font-size: 9px;
+    color: #B08968;
+    margin-bottom: 4px;
+}
+
+.ps-rainbow-select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #FFFDF9;
+    border: 1px solid #F0DFC8;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: #6B4423;
+}
+
+.ps-rainbow-diary-box {
+    background: #FFFDF9;
+    border: 1px solid #F0DFC8;
+    border-radius: 16px;
+    padding: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 11px;
+    line-height: 1.75;
+    color: #5C4530;
+    white-space: pre-wrap;
+}
+
+.ps-rainbow-diary-empty {
+    color: #B08968;
+    text-align: center;
+}
+
+.ps-rainbow-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #F4A261, #E76F51);
+    border: none;
+    border-radius: 14px;
+    padding: 11px;
+    font-size: 12px;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(231, 111, 81, 0.25);
+    cursor: pointer;
+}
+
+.ps-rainbow-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
 }
