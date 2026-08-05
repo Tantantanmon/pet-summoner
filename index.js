@@ -61,32 +61,28 @@ function isMobile() {
     }
 }
 
-// 일부 모바일 브라우저/웹뷰에서는 click 이벤트가 터치에서 제대로 합성되지 않거나
-// 지연될 수 있어, touchend도 함께 걸어 확실히 반응하게 한다.
-// 같은 조작에서 click과 touchend가 둘 다 발생하는 기기에서는 중복 실행되지 않도록
-// 짧은 시간 안의 재호출은 건너뛴다.
+// 터치와 클릭 중복 실행을 막기 위한 전역 변수
+let globalLastTouchTime = 0;
+
 function bindTap(selector, handler, namespace = '') {
-    let lastTouchTime = 0;
     $(document).on(`touchend${namespace}`, selector, function (e) {
-        lastTouchTime = Date.now();
+        globalLastTouchTime = Date.now();
         handler.call(this, e);
     });
     $(document).on(`click${namespace}`, selector, function (e) {
-        if (Date.now() - lastTouchTime < 700) return;
+        if (Date.now() - globalLastTouchTime < 700) return;
         handler.call(this, e);
     });
 }
 
-// 순수 DOM 요소(createElement로 만든 모달 등)에 붙일 때 쓰는 버전.
 function addTapListener(el, handler) {
     if (!el) return;
-    let lastTouchTime = 0;
     el.addEventListener('touchend', (e) => {
-        lastTouchTime = Date.now();
+        globalLastTouchTime = Date.now();
         handler(e);
     });
     el.addEventListener('click', (e) => {
-        if (Date.now() - lastTouchTime < 700) return;
+        if (Date.now() - globalLastTouchTime < 700) return;
         handler(e);
     });
 }
@@ -208,8 +204,6 @@ function shuffle(arr) {
     return [...arr].sort(() => Math.random() - 0.5);
 }
 
-// 완전 무작위 대신 "셔플백" 방식: 풀 전체를 한 번 섞어서 순서대로 소진하고,
-// 다 쓰면 다시 섞어서 반복한다. 특정 항목이 계속 안 뽑히거나 반복되는 걸 방지한다.
 function pickRotating(stateKey, pool, n) {
     const cleanPool = (pool || []).map((x) => (x || '').trim()).filter(Boolean);
     if (cleanPool.length === 0) return [];
@@ -353,8 +347,14 @@ function injectButtons() {
     const $cancel = $('<span class="ps-cancel-badge" title="적용 취소"></span>');
     $btn.append($icon).append($cancel);
 
-    // 클릭 핸들러는 이 요소에 직접 붙이지 않고 document에 위임한다 (boot() 참고).
-    // 모바일 등에서 이 요소가 재생성되는 경우에도 계속 동작하게 하기 위함이다.
+    $btn.on('click touchend', function (e) {
+        e.preventDefault(); 
+        if ($(e.target).closest('.ps-cancel-badge').length) {
+            clearArmed();
+        } else {
+            openTagPopup();
+        }
+    });
 
     if ($('#rightSendForm').length) {
         $('#rightSendForm').prepend($btn);
@@ -468,9 +468,13 @@ function injectMenuItem() {
 
     const $item = $(
         '<div id="pet_summoner_menu_item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">' +
-        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>',
+        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>'
     );
-    // 클릭 핸들러는 document에 위임한다 (boot() 참고).
+
+    $item.on('click touchend', function (e) {
+        e.preventDefault();
+        openMainPanel();
+    });
 
     const $menu = $('#extensionsMenu');
     if ($menu.length) {
@@ -482,9 +486,6 @@ function injectMenuItem() {
 
 // ---------- 메인 패널 내비게이션 ----------
 
-// 화면 내비게이션 상태는 JS 변수 대신 모달 DOM 요소(dataset)에 저장한다.
-// 확장 스크립트가 어떤 이유로든 다시 로드되어 모듈이 두 번 평가되는 경우에도
-// (예: 페이지를 완전히 새로고침하지 않고 반복 테스트한 경우) 상태가 서로 어긋나지 않도록 하기 위함이다.
 function getScreenStack() {
     const box = document.getElementById('ps_main_box');
     if (!box) return ['home'];
@@ -550,8 +551,6 @@ function closeMainPanel() {
 }
 
 async function openMainPanel() {
-    // 이전에 뭔가 실패해서 오버레이가 남아있는 상태로 걸려있을 수 있으니,
-    // 조용히 무시하지 말고 정리 후 다시 새로 연다.
     const stale = document.getElementById('ps_main_overlay');
     if (stale) {
         unbindPanelEvents();
@@ -947,8 +946,6 @@ function buildRainbowPrompt(pet) {
     ].join('\n');
 }
 
-// 캐릭터 카드의 번역 스키마(<english_output>, <trans_korean>, <infoblock> 등)가
-// 그래도 섞여 나오는 경우를 대비한 후처리 — 한국어 본문만 최대한 뽑아낸다.
 function cleanDiaryText(raw) {
     let text = (raw || '').trim();
     if (!text) return text;
@@ -1121,13 +1118,12 @@ async function sendRainbowChat(petId) {
 // ---------- 패널 이벤트 바인딩 ----------
 
 function bindPanelEvents() {
-    unbindPanelEvents(); // 혹시 이전에 남아있는 바인딩이 있다면 먼저 정리 (중복 바인딩 방지)
+    unbindPanelEvents(); 
 
     const context = SillyTavern.getContext();
     const settings = getSettings();
     const ns = '.petsumPanel';
 
-    // 홈 내비게이션
     bindTap('.ps-menu-row[data-nav]', function () {
         pushScreen($(this).data('nav'));
     }, ns);
@@ -1140,7 +1136,6 @@ function bindPanelEvents() {
         pushScreen('rainbow-diary');
     }, ns);
 
-    // 펫 추가 (플로팅 + 버튼)
     bindTap('#ps_add_pet_fab', function () {
         const species = $(this).data('species');
         const name = window.prompt(`${speciesLabel(species)} 이름을 입력해주세요`, '');
@@ -1151,7 +1146,6 @@ function bindPanelEvents() {
         renderScreen(currentTopScreen());
     }, ns);
 
-    // 일반 필드 (이름/나이/품종/성별/크기/에너지/민감정보)
     $(document).on(`input${ns} change${ns}`, '.ps-pet-field', function () {
         const id = $(this).data('pet-id');
         const field = $(this).data('field');
@@ -1165,8 +1159,6 @@ function bindPanelEvents() {
         if (id === getActivePetId()) updateButtonUI();
     });
 
-    // 태그형 필드 (좋아하는것/싫어하는것/습관·루틴) - 화면 전체를 다시 그리지 않고
-    // 해당 pill-row만 갱신한다 (아코디언이 접히거나 스크롤이 튀는 것을 방지).
     $(document).on(`keydown${ns}`, '.ps-pet-tag-input', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -1191,7 +1183,6 @@ function bindPanelEvents() {
         refreshPetTagPills(id, field);
     }, ns);
 
-    // 활성 펫 지정 / 삭제
     $(document).on(`change${ns}`, '.ps-pet-activate', function () {
         const id = $(this).data('pet-id');
         setActivePetId(id);
@@ -1221,7 +1212,6 @@ function bindPanelEvents() {
         e.stopPropagation();
     });
 
-    // 추억 에피소드
     bindTap('.ps-episode-add', function () {
         const id = $(this).data('pet-id');
         settings.pets[id].episodes = settings.pets[id].episodes || [];
@@ -1245,7 +1235,6 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
     }, ns);
 
-    // 태그 관리 (마법봉 홈 > 태그)
     for (const group of ['interaction', 'routine']) {
         $(document).on(`keydown${ns}`, `#ps_tagadd_${group}_input`, function (e) {
             if (e.key === 'Enter') {
@@ -1267,7 +1256,6 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
     }, ns);
 
-    // 무지개다리
     $(document).on(`change${ns}`, '#ps_rainbow_profile_select', function () {
         settings.rainbowBridgeProfile = $(this).val();
         context.saveSettingsDebounced();
@@ -1285,7 +1273,6 @@ function bindPanelEvents() {
         }
     });
 
-    // 1회성 토글 / 초기화
     $(document).on(`change${ns}`, '#ps_oneshot', function () {
         settings.oneShot = $(this).is(':checked');
         context.saveSettingsDebounced();
@@ -1324,9 +1311,6 @@ function resetOneShotIfNeeded() {
     updateButtonUI();
     context.saveSettingsDebounced();
 }
-
-// ---------- 슬래시 명령어 (빠른 응답에서 사용) ----------
-// 모듈 최상위에서 실행하지 않고 boot() 안에서 호출한다. 실패해도 확장 전체엔 영향 없다.
 
 function registerSlashCommand() {
     try {
@@ -1381,8 +1365,6 @@ function boot(attemptsLeft = 20) {
         return;
     }
 
-    // 이벤트 리스너를 먼저 등록한다 — 아래 초기 삽입이 어떤 이유로든 실패하더라도,
-    // APP_READY/CHAT_CHANGED 시점에 다시 시도될 수 있도록 하기 위함이다.
     context.eventSource.on(context.event_types.APP_READY, () => {
         safeInjectAll();
         try { updateExtensionPrompt(); } catch (error) { console.error('[PetSummoner] updateExtensionPrompt 실패:', error); }
@@ -1404,22 +1386,6 @@ function boot(attemptsLeft = 20) {
         }, 50);
     });
 
-    // 마법봉 메뉴 항목 / 입력창 버튼 클릭은 document에 위임하고, click+touchend를 함께 건다.
-    // (요소 자체에 직접 붙이면, 그 DOM 노드가 나중에 재생성되는 환경에서 리스너가 사라질 수 있고,
-    //  click만 걸면 일부 모바일 환경에서 터치가 click으로 합성되지 않을 수 있다.)
-    bindTap('#pet_summoner_menu_item', () => {
-        openMainPanel();
-    });
-    bindTap('#pet_summon_active', (e) => {
-        if ($(e.target).closest('.ps-cancel-badge').length) return;
-        openTagPopup();
-    });
-    bindTap('#pet_summon_active .ps-cancel-badge', (e) => {
-        e.stopPropagation();
-        clearArmed();
-    });
-
-    // 초기 삽입 시도 (실패해도 위 리스너들이 이미 등록되어 있으므로 이후 재시도됨)
     safeInjectAll();
     registerSlashCommand();
     try {
@@ -1428,9 +1394,7 @@ function boot(attemptsLeft = 20) {
         console.error('[PetSummoner] updateExtensionPrompt 실패:', error);
     }
 
-    // 일부 환경에서 입력창/마법봉 메뉴 DOM이 늦게 생성될 수 있어 한 번 더 재시도한다.
     setTimeout(safeInjectAll, 2000);
-
     console.log('[PetSummoner] 확장이 로드되었습니다.');
 }
 
