@@ -939,16 +939,15 @@
         inset: 0 !important;
     }
 
+    /* 팝업을 다시 화면 가운데로 부르고 배경을 어둡게 */
     .ps-overlay.ps-mobile {
-        align-items: flex-end !important;
+        align-items: center !important;
         background: rgba(0, 0, 0, 0.5) !important;
     }
 
+    /* 화면 가운데서 최대 높이만 70%로 줄임 */
     .ps-box.ps-mobile {
-        width: 100vw !important;
-        padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+        margin: auto !important;
         max-height: 70vh !important;
-        margin: 0 !important;
-        border-radius: 22px 22px 0 0 !important;
     }
 }
