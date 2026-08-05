@@ -1,18 +1,11 @@
 // 천사에게 - SillyTavern extension
-//
-// 중요: 상대경로 import(../../../../script.js 등)는 ST 버전/설치 구조가 조금만 달라도
-// import 한 줄이 실패하면서 파일 전체가 로드되지 않는다(콘솔 로그조차 안 남는다).
-// 이 확장이 "다른 확장은 다 되는데 이것만 안 뜨는" 증상을 보였던 원인이 이것이었다.
-// 그래서 어떤 것도 import하지 않고, 필요한 값은 런타임에 getContext()에서 폴백과 함께 읽는다.
 
-// extension_prompt 위치/역할 상수 — getContext에 있으면 그걸 쓰고, 없으면 안전한 기본값을 쓴다.
 function getPromptConstants() {
     const ctx = SillyTavern.getContext();
     const types = ctx.extension_prompt_types || { IN_PROMPT: 0, IN_CHAT: 1, BEFORE_PROMPT: 2 };
     const roles = ctx.extension_prompt_roles || { SYSTEM: 0, USER: 1, ASSISTANT: 2 };
     return { types, roles };
 }
-
 
 const MODULE_NAME = 'pet_summoner';
 const PROMPT_KEY = 'pet_summoner_prompt';
@@ -25,8 +18,8 @@ const EMPTY_PET_FIELDS = Object.freeze({
 
 const defaultSettings = Object.freeze({
     schemaVersion: SCHEMA_VERSION,
-    pets: {}, // id -> { id, species, ...EMPTY_PET_FIELDS }
-    activePetByCharacter: {}, // characterKey -> petId
+    pets: {}, 
+    activePetByCharacter: {}, 
     selectedTags: [],
     customNote: '',
     oneShot: true,
@@ -61,30 +54,14 @@ function isMobile() {
     }
 }
 
-// 터치와 클릭 중복 실행을 막기 위한 전역 변수
-let globalLastTouchTime = 0;
-
+// Peach Whisper 방식으로 이벤트 바인딩 단순화
 function bindTap(selector, handler, namespace = '') {
-    $(document).on(`touchend${namespace}`, selector, function (e) {
-        globalLastTouchTime = Date.now();
-        handler.call(this, e);
-    });
-    $(document).on(`click${namespace}`, selector, function (e) {
-        if (Date.now() - globalLastTouchTime < 700) return;
-        handler.call(this, e);
-    });
+    $(document).on(`click${namespace}`, selector, handler);
 }
 
 function addTapListener(el, handler) {
     if (!el) return;
-    el.addEventListener('touchend', (e) => {
-        globalLastTouchTime = Date.now();
-        handler(e);
-    });
-    el.addEventListener('click', (e) => {
-        if (Date.now() - globalLastTouchTime < 700) return;
-        handler(e);
-    });
+    el.addEventListener('click', handler);
 }
 
 // ---------- 설정 로드 / 마이그레이션 ----------
@@ -92,7 +69,6 @@ function addTapListener(el, handler) {
 function migrateIfNeeded(settings) {
     if (settings.schemaVersion === SCHEMA_VERSION) return;
 
-    // v1 -> v2: settings.pets = { dog: {...}, cat: {...} }, settings.activePet = 'dog'|'cat'|null
     const legacyPets = settings.pets;
     if (legacyPets && (legacyPets.dog || legacyPets.cat) && !legacyPets.dog?.id && !legacyPets.cat?.id) {
         const migrated = {};
@@ -112,7 +88,6 @@ function migrateIfNeeded(settings) {
     if (!settings.activePetByCharacter) settings.activePetByCharacter = {};
     delete settings.activePet;
 
-    // v2 -> v3: 문자열 필드 -> 태그 배열, 버릇+루틴 통합, 성별 추가, 소리 제거, 건강->민감정보
     const toArray = (v) => {
         if (Array.isArray(v)) return v;
         const s = (v || '').trim();
@@ -347,7 +322,7 @@ function injectButtons() {
     const $cancel = $('<span class="ps-cancel-badge" title="적용 취소"></span>');
     $btn.append($icon).append($cancel);
 
-    $btn.on('click touchend', function (e) {
+    $btn.on('click', function (e) {
         e.preventDefault(); 
         if ($(e.target).closest('.ps-cancel-badge').length) {
             clearArmed();
@@ -441,6 +416,11 @@ function openTagPopup() {
         addTapListener(overlay, (e) => {
             if (e.target === overlay) closeTagPopup();
         });
+        // Peach Whisper 방식의 오버레이 닫기 적용
+        overlay.addEventListener('touchstart', (e) => {
+            if (e.target === overlay) closeTagPopup();
+        }, { passive: true });
+
         addTapListener(box.querySelector('#ps_tag_cancel'), closeTagPopup);
         addTapListener(box.querySelector('#ps_tag_apply'), () => {
             const context = SillyTavern.getContext();
@@ -471,7 +451,7 @@ function injectMenuItem() {
         '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>'
     );
 
-    $item.on('click touchend', function (e) {
+    $item.on('click', function (e) {
         e.preventDefault();
         openMainPanel();
     });
@@ -584,6 +564,11 @@ async function openMainPanel() {
         addTapListener(overlay, (e) => {
             if (e.target === overlay) closeMainPanel();
         });
+        // Peach Whisper 방식의 오버레이 닫기 적용
+        overlay.addEventListener('touchstart', (e) => {
+            if (e.target === overlay) closeMainPanel();
+        }, { passive: true });
+
         addTapListener(box.querySelector('#ps_main_close'), closeMainPanel);
 
         bindPanelEvents();
@@ -1208,7 +1193,7 @@ function bindPanelEvents() {
         context.saveSettingsDebounced();
         renderScreen(currentTopScreen());
     }, ns);
-    $(document).on(`click${ns} touchend${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
+    $(document).on(`click${ns}`, '.ps-active-radio, .ps-pet-delete', function (e) {
         e.stopPropagation();
     });
 
