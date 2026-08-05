@@ -353,8 +353,15 @@ function injectButtons() {
     const $cancel = $('<span class="ps-cancel-badge" title="적용 취소"></span>');
     $btn.append($icon).append($cancel);
 
-    // 클릭 핸들러는 이 요소에 직접 붙이지 않고 document에 위임한다 (boot() 참고).
-    // 모바일 등에서 이 요소가 재생성되는 경우에도 계속 동작하게 하기 위함이다.
+    // 모바일 터치 증발 방지: 생성 즉시 버튼에 직접 이벤트 바인딩
+    $btn.on('click touchend', function (e) {
+        e.preventDefault(); // 고스트 클릭 방지
+        if ($(e.target).closest('.ps-cancel-badge').length) {
+            clearArmed();
+        } else {
+            openTagPopup();
+        }
+    });
 
     if ($('#rightSendForm').length) {
         $('#rightSendForm').prepend($btn);
@@ -364,6 +371,9 @@ function injectButtons() {
         console.warn('[PetSummoner] 입력창 영역을 찾지 못해 버튼을 추가하지 못했습니다.');
         return;
     }
+
+    updateButtonUI();
+}
 
     updateButtonUI();
 }
@@ -468,9 +478,14 @@ function injectMenuItem() {
 
     const $item = $(
         '<div id="pet_summoner_menu_item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">' +
-        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>',
+        '<i class="fa-solid fa-paw"></i><span>천사에게</span></div>'
     );
-    // 클릭 핸들러는 document에 위임한다 (boot() 참고).
+
+    // 모바일 터치 증발 방지: 생성 즉시 버튼에 직접 이벤트 바인딩
+    $item.on('click touchend', function (e) {
+        e.preventDefault(); // 고스트 클릭 방지
+        openMainPanel();
+    });
 
     const $menu = $('#extensionsMenu');
     if ($menu.length) {
